@@ -397,7 +397,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     {selectedJobToInspect.txs.map((tx, idx) => (
                       <a
                         key={idx}
-                        href={`https://testnet.bscscan.com/tx/${tx}`}
+                        href={`${selectedJobToInspect.chainId === 56 ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx'}/${tx}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[#2563EB] hover:underline flex items-center space-x-1 font-bold"

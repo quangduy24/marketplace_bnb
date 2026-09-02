@@ -96,7 +96,7 @@ const BUILDINGS: BuildingTarget[] = [
     icon: TrendingUp,
     accentColor: '#00F59B',
     code: 'HUB.04',
-    badgeText: 'NET ALPHA +$1.8K',
+    badgeText: 'LIVE TREASURY',
     spriteName: 'yield',
     tags: ['Liquidation Shield', 'Compounding APY'],
   },

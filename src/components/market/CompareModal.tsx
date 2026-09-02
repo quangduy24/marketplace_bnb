@@ -53,12 +53,18 @@ export const CompareModal: React.FC<CompareModalProps> = ({
           {[agent1, agent2].map((agent, idx) => {
             const career = (agent.labels?.[0] || 'monitoring') as any;
             const spriteSrc = getPixelSprite(career);
-            const hourlyRate = agent.rawJson?.hourlyCostU || '0.25';
-            const latency = agent.rawJson?.p99LatencyMs || 350;
-            const reputation = agent.rawJson?.reputationScore || 95;
+            const raw = (agent.rawJson || {}) as any;
+            const hasRate = Number.isFinite(Number(raw.hourlyCostU)) && Number(raw.hourlyCostU) > 0;
+            const hourlyRate = hasRate ? String(raw.hourlyCostU) : null;
             const totalJobs = (agent.successCount || 0) + (agent.failureCount || 0);
-            const winRate =
-              totalJobs > 0 ? Math.round((agent.successCount / totalJobs) * 100) : 100;
+            const winRate = totalJobs > 0 ? Math.round((agent.successCount / totalJobs) * 100) : null;
+            const indexerScore = Number(raw.totalScore || 0);
+            const stars = raw.starCount ?? 0;
+            const verified = Boolean(raw.endpointVerified) || Boolean(agent.reachable);
+            const hasX402 = Boolean(agent.x402Supported);
+            const hasErc8183 = Boolean(agent.supportedProtocols?.includes('erc8183'));
+            const hasA2A = Boolean(agent.agentUri);
+            const paymentLabel = hasX402 ? 'X402' : hasErc8183 ? 'ERC-8183' : hasA2A ? 'A2A' : '—';
 
             return (
               <div
@@ -95,27 +101,35 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                     "{agent.description}"
                   </p>
 
-                  {/* Benchmark Specs Matrix */}
+                  {/* Benchmark Specs Matrix — real indexer data */}
                   <div className="space-y-2 border-t-2 border-[#121212] pt-3 font-mono-tech text-xs">
                     <div className="flex justify-between py-1 border-b border-[#D0C8B8]">
                       <span className="text-[#6A6A6A]">HOURLY TARIFF:</span>
-                      <span className="font-bold text-[#121212]">{hourlyRate} $U/hr</span>
+                      <span className="font-bold text-[#121212]">
+                        {hourlyRate ? `${hourlyRate} $U/hr` : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-[#D0C8B8]">
-                      <span className="text-[#6A6A6A]">P99 LATENCY:</span>
-                      <span className="font-bold text-[#2563EB]">{latency} ms</span>
+                      <span className="text-[#6A6A6A]">ENDPOINT:</span>
+                      <span className={`font-bold ${verified ? 'text-[#059669]' : 'text-[#A0A0A0]'}`}>
+                        {verified ? '✓ VERIFIED' : 'UNVERIFIED'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-[#D0C8B8]">
                       <span className="text-[#6A6A6A]">PROVEN WIN RATE:</span>
-                      <span className="font-bold text-[#00F59B]">{winRate}%</span>
+                      <span className="font-bold text-[#00F59B]">
+                        {winRate !== null ? `${winRate}%` : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-[#D0C8B8]">
-                      <span className="text-[#6A6A6A]">TRUST SCORE:</span>
-                      <span className="font-bold text-[#121212]">{reputation}/100</span>
+                      <span className="text-[#6A6A6A]">INDEXER SCORE:</span>
+                      <span className="font-bold text-[#121212]">
+                        {indexerScore.toFixed(1)} · ★ {stars}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1">
                       <span className="text-[#6A6A6A]">PAYMENT STANDARD:</span>
-                      <span className="font-bold text-[#FF7828]">ERC-8183 ESCROW</span>
+                      <span className="font-bold text-[#FF7828]">{paymentLabel}</span>
                     </div>
                   </div>
                 </div>

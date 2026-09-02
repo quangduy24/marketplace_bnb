@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Search,
   CheckCircle2,
+  AlertTriangle,
   Scale,
   Zap,
   HelpCircle,
@@ -97,7 +98,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 }) => {
   // Filters & State
   const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all'>('all');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForCompare, setSelectedForCompare] = useState<AgentData[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -128,7 +129,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
   // Filter agents for the right panel
   const filteredAgents = agents.filter((agent) => {
-    if (activeOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
+    if (verifiedOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
       return false;
     }
     const agentCategory = (agent.labels?.[0] || 'monitoring') as CareerCategory;
@@ -279,6 +280,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               const isEmergency = walletContext.hasEmergencyShortfall && stall.id === 'health_factor';
               const stallAgents = agents.filter((a) => a.labels?.includes(stall.id));
               const topAgent = stallAgents[0];
+              const rates = stallAgents
+                .map((a) => Number((a.rawJson as any)?.hourlyCostU))
+                .filter((n) => Number.isFinite(n) && n > 0);
+              const minRate = rates.length > 0 ? Math.min(...rates) : null;
+              const verifiedCount = stallAgents.filter((a) => a.hireable).length;
 
               return (
                 <div
@@ -304,7 +310,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         {stall.issueCode}
                       </span>
                       <span className="font-mono-tech text-[9px] text-[#6A6A6A] font-bold">
-                        {stallAgents.length} AGENT AVAILABLE
+                        {stallAgents.length} AGENTS · {verifiedCount} HIREABLE
                       </span>
                     </div>
 
@@ -340,17 +346,42 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       {stall.purpose}
                     </p>
 
-                    {/* Key Benefit */}
+                    {/* Tags */}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span
+                        className="neo-badge text-[8px] px-1.5 py-0.5 font-mono-tech font-black border border-[#121212]"
+                        style={{ backgroundColor: stall.accent, color: '#121212' }}
+                      >
+                        {stall.id.toUpperCase()}
+                      </span>
+                      {stall.id === 'health_factor' && (
+                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">RISK</span>
+                      )}
+                      {stall.id === 'yield' && (
+                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">APY</span>
+                      )}
+                      {stall.id === 'grid' && (
+                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">DEX</span>
+                      )}
+                      {stall.id === 'monitoring' && (
+                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">SEC</span>
+                      )}
+                    </div>
+
+                    {/* Top agent (real data) */}
                     <div className="mt-2 inline-flex items-center space-x-1 text-[10px] font-mono-tech font-black text-[#121212] bg-[#FFE500] px-2 py-0.5 border border-[#121212]">
                       <Check className="w-3 h-3 stroke-[3]" />
-                      <span>{stall.benefit}</span>
+                      <span>TOP: {topAgent ? topAgent.name : '— no agent yet'}</span>
                     </div>
                   </div>
 
                   {/* Stall Actions */}
                   <div className="mt-3 pt-2 border-t-2 border-[#121212] flex items-center justify-between gap-2">
                     <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-                      FROM: <strong className="text-[#121212] font-black">{stall.startingRate}</strong>
+                      FROM:{' '}
+                      <strong className="text-[#121212] font-black">
+                        {minRate !== null ? `${minRate.toFixed(2)} $U/hr` : '—'}
+                      </strong>
                     </span>
 
                     <div className="flex items-center space-x-1.5">
@@ -395,23 +426,23 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 <SlidersHorizontal className="w-4 h-4 text-[#121212]" />
                 <div>
                   <h3 className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight block leading-none">
-                    VERIFIED AGENT DIRECTORY
+                    AGENT DIRECTORY
                   </h3>
                   <span className="font-mono-tech text-[9px] text-[#6A6A6A] mt-0.5 block">
-                    Showing {filteredAgents.length} of {agents.length} on-chain verified agents
+                    Showing {filteredAgents.length} of {agents.length} on-chain agents
                   </span>
                 </div>
               </div>
 
-              {/* 5s Probed Live Checkbox */}
+              {/* Verified / Hireable only checkbox */}
               <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
                 <input
                   type="checkbox"
-                  checked={activeOnly}
-                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  checked={verifiedOnly}
+                  onChange={(e) => setVerifiedOnly(e.target.checked)}
                   className="accent-[#121212] w-3.5 h-3.5 border-2 border-[#121212]"
                 />
-                <span className="text-[#059669]">● 5s PROBED ACTIVE</span>
+                <span className="text-[#059669]">● VERIFIED & HIREABLE ONLY</span>
               </label>
             </div>
 
@@ -506,7 +537,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   onClick={() => {
                     setSelectedCategory('all');
                     setSearchQuery('');
-                    setActiveOnly(false);
+                    setVerifiedOnly(false);
                   }}
                   className="mt-3 neo-btn bg-[#FFE500] text-[#121212] font-mono-tech text-[10px] font-bold px-3 py-1"
                 >
@@ -520,9 +551,14 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 const isCompareChecked = Boolean(
                   selectedForCompare.find((a) => a.agentId === agent.agentId)
                 );
-                const hourlyCost = agent.rawJson?.hourlyCostU || '0.25';
-                const dailyCost = (Number(hourlyCost) * 24).toFixed(2);
-                const reputation = agent.rawJson?.reputationScore || 95;
+                const hourlyCostRaw = Number((agent.rawJson as any)?.hourlyCostU);
+                const hasRate = Number.isFinite(hourlyCostRaw) && hourlyCostRaw > 0;
+                const hourlyCost = hasRate ? String((agent.rawJson as any)?.hourlyCostU) : null;
+                const dailyCost = hasRate ? (hourlyCostRaw * 24).toFixed(2) : null;
+                const rawStats = (agent.rawJson || {}) as any;
+                const starCount = rawStats.starCount ?? 0;
+                const totalScore = Number(rawStats.totalScore || 0);
+                const feedbacks = rawStats.totalFeedbacks ?? 0;
                 const isRecommended =
                   walletContext.hasEmergencyShortfall && career === 'health_factor';
 
@@ -560,18 +596,23 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             />
                           </div>
 
-                          <div>
+                            <div>
                             <div className="flex items-center space-x-1.5 flex-wrap">
-                              <span className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 font-mono-tech">
-                                {career.toUpperCase()}
-                              </span>
+                              {(agent.labels && agent.labels.length > 0 ? agent.labels : [career]).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 font-mono-tech"
+                                >
+                                  {tag.toUpperCase()}
+                                </span>
+                              ))}
                               <span
                                 className={`w-2 h-2 rounded-full border border-[#121212] ${
                                   agent.hireable ? 'bg-[#00F59B]' : 'bg-[#A0A0A0]'
                                 }`}
                               />
-                              <span className="font-mono-tech text-[9px] text-[#059669] font-bold">
-                                ONLINE
+                              <span className="font-mono-tech text-[9px] font-bold text-[#059669]">
+                                {agent.hireable ? 'ONLINE' : agent.reachable ? 'UNVERIFIED PAYMENT' : 'UNPROBED'}
                               </span>
                             </div>
 
@@ -584,13 +625,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         {/* Pricing */}
                         <div className="text-right shrink-0 bg-[#FAF7F0] p-1.5 border border-[#121212]">
                           <div className="font-mono-tech text-xs text-[#121212] font-black">
-                            {hourlyCost} $U/hr
+                            {hourlyCost ? `${hourlyCost} $U/hr` : 'RATE: —'}
                           </div>
                           <div className="font-mono-tech text-[9px] text-[#6A6A6A]">
-                            ~${dailyCost} / day
+                            {dailyCost ? `~$${dailyCost} / day` : 'quote on hire'}
                           </div>
                           <div className="font-mono-tech text-[9px] text-[#059669] font-bold">
-                            ★ {reputation}/100 PROOF
+                            ★ {starCount} · {totalScore.toFixed(1)} SCORE
                           </div>
                         </div>
                       </div>
@@ -600,12 +641,32 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         "{agent.description}"
                       </p>
 
-                      {/* Escrow & Security Badges */}
-                      <div className="mt-1.5 flex items-center space-x-3 font-mono-tech text-[9px] text-[#555]">
-                        <div className="flex items-center space-x-1">
-                          <CheckCircle2 className="w-3 h-3 text-[#059669]" />
-                          <span>ERC-8183 Escrow Protected</span>
-                        </div>
+                      {/* Settlement Rails & Security (real per-agent data) */}
+                      <div className="mt-1.5 flex items-center flex-wrap gap-x-3 gap-y-1 font-mono-tech text-[9px] text-[#555]">
+                        {agent.x402Supported && (
+                          <div className="flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-[#059669]" />
+                            <span>X402 PAYMENTS</span>
+                          </div>
+                        )}
+                        {agent.supportedProtocols?.includes('erc8183') && (
+                          <div className="flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-[#059669]" />
+                            <span>ERC-8183 ESCROW</span>
+                          </div>
+                        )}
+                        {agent.agentUri && (
+                          <div className="flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-[#059669]" />
+                            <span>A2A ENDPOINT</span>
+                          </div>
+                        )}
+                        {!agent.x402Supported && !agent.supportedProtocols?.includes('erc8183') && !agent.agentUri && (
+                          <div className="flex items-center space-x-1 text-[#A0A0A0]">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>NO RAIL LISTED</span>
+                          </div>
+                        )}
                         <div className="flex items-center space-x-1">
                           <CheckCircle2 className="w-3 h-3 text-[#059669]" />
                           <span>Zero Key Delegation</span>
@@ -743,17 +804,35 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </div>
                 <div>
                   <span className="text-[#8A8A8A] text-[9px] block">HOURLY RATE:</span>
-                  <span className="font-bold">{inspectedAgent.rawJson?.hourlyCostU || '0.25'} $U/hr</span>
+                  <span className="font-bold">
+                    {(() => {
+                      const raw = (inspectedAgent.rawJson || {}) as any;
+                      const n = Number(raw.hourlyCostU);
+                      return Number.isFinite(n) && n > 0 ? `${raw.hourlyCostU} $U/hr` : '—';
+                    })()}
+                  </span>
                 </div>
                 <div>
                   <span className="text-[#8A8A8A] text-[9px] block">DAILY ESTIMATE:</span>
                   <span className="font-bold">
-                    {(Number(inspectedAgent.rawJson?.hourlyCostU || 0.25) * 24).toFixed(2)} $U/day
+                    {(() => {
+                      const raw = (inspectedAgent.rawJson || {}) as any;
+                      const n = Number(raw.hourlyCostU);
+                      return Number.isFinite(n) && n > 0 ? `${(n * 24).toFixed(2)} $U/day` : 'quote on hire';
+                    })()}
                   </span>
                 </div>
                 <div>
                   <span className="text-[#8A8A8A] text-[9px] block">ESCROW PROTOCOL:</span>
-                  <span className="font-bold">ERC-8183 Smart Contract</span>
+                  <span className="font-bold">
+                    {inspectedAgent.x402Supported
+                      ? 'X402'
+                      : (inspectedAgent.supportedProtocols || []).includes('erc8183')
+                        ? 'ERC-8183 Escrow'
+                        : inspectedAgent.agentUri
+                          ? 'A2A'
+                          : '—'}
+                  </span>
                 </div>
               </div>
 

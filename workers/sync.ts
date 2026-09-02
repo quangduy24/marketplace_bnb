@@ -2,9 +2,10 @@
  * Worker: Targeted sync from 8004scan
  * NEVER performs blind sweep of 300k registry.
  * Strictly queries 4 categories with a cap of 200 items per category.
+ * Persists real on-chain ERC-8004 agents into the store (Supabase).
  */
-import { searchAgentsSemantic, fetchRecentAgents, sleep } from '../lib/8004scan.ts';
-import { memoryStore } from '../lib/supabase.ts';
+import { searchAgentsSemantic, fetchRecentAgents, sleep, mapRawToAgent } from '../lib/8004scan.ts';
+import { store } from '../lib/supabase.ts';
 
 const CATEGORY_QUERIES = {
   monitoring: ['monitoring agent', 'wallet watcher', 'price alert', 'position monitor'],
@@ -33,22 +34,7 @@ export async function runSemanticSync() {
         const batch = await searchAgentsSemantic(query, 56, 50, 0);
         for (const raw of batch) {
           if (count >= MAX_PER_CATEGORY) break;
-
-          memoryStore.upsertAgent({
-            chainId: raw.chain_id || 56,
-            agentId: raw.agent_id,
-            tokenId: raw.token_id,
-            owner: raw.owner,
-            name: raw.name,
-            description: raw.description,
-            imageUrl: raw.image_url || `/sprites/agent-${category}.png`,
-            agentUri: raw.agent_uri,
-            supportedProtocols: raw.supported_protocols || ['x402'],
-            x402Supported: Boolean(raw.x402_supported),
-            status: raw.status || 'registered',
-            active: Boolean(raw.active),
-            rawJson: raw.raw_json || {},
-          });
+          await store.upsertAgent(mapRawToAgent(raw));
           count++;
         }
       } catch (err) {
@@ -74,20 +60,18 @@ export async function runIncrementalSync(maxPages = 3) {
     const batch = await fetchRecentAgents(56, 50, offset);
 
     for (const raw of batch) {
-      memoryStore.upsertAgent({
+      // Recent-list endpoint is lean: only upsert fields it actually carries.
+      // Existing rows keep their active/reachable/hireable state (merged in store).
+      await store.upsertAgent({
         chainId: raw.chain_id || 56,
         agentId: raw.agent_id,
-        tokenId: raw.token_id,
-        owner: raw.owner,
-        name: raw.name,
-        description: raw.description,
-        imageUrl: raw.image_url,
-        agentUri: raw.agent_uri,
-        supportedProtocols: raw.supported_protocols || [],
-        x402Supported: Boolean(raw.x402_supported),
-        status: raw.status || 'registered',
-        active: Boolean(raw.active),
-        rawJson: raw.raw_json || {},
+        tokenId: raw.token_id ?? null,
+        owner: raw.owner_address ?? null,
+        name: raw.name ?? null,
+        description: raw.description ?? null,
+        imageUrl: raw.image_url ?? null,
+        supportedProtocols: raw.supported_protocols ?? [],
+        x402Supported: raw.x402_supported ?? false,
       });
       totalAdded++;
     }

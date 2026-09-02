@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { eq, and, desc, count, sql, arrayContains, not } from 'drizzle-orm';
 import * as schema from '../db/schema.ts';
 import seedData from '../seeds/four-sellers.json' with { type: 'json' };
 
@@ -21,8 +22,147 @@ if (connectionString) {
   console.log('[Supabase] DATABASE_URL not set. Running in resilient mock/local store with seed agents.');
 }
 
-// In-memory memory fallback store to ensure zero crash if DATABASE_URL is missing in preview
-export class MemoryStore {
+export interface Store {
+  getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean): Promise<schema.Agent[]>;
+  getAllAgents(): Promise<schema.Agent[]>;
+  getAgentById(id: string): Promise<schema.Agent | undefined>;
+  countAgents(): Promise<number>;
+  upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }): Promise<void>;
+  getHires(buyer?: string): Promise<schema.Hire[]>;
+  getHireById(id: string): Promise<schema.Hire | undefined>;
+  addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire>;
+  updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null>;
+}
+
+/**
+ * SQL-backed store for Supabase / Postgres via drizzle.
+ * All reads/writes hit the real database.
+ */
+export class SqlStore implements Store {
+  private db: any;
+
+  constructor(db: any) {
+    this.db = db;
+  }
+
+  async getAgents(filterActive = true, category?: string, verifiedOnly = false): Promise<schema.Agent[]> {
+    const conditions: any[] = [];
+    if (filterActive) {
+      conditions.push(eq(schema.agents.active, true));
+    }
+    if (verifiedOnly) {
+      conditions.push(eq(schema.agents.reachable, true));
+      conditions.push(eq(schema.agents.hireable, true));
+    }
+    if (category && category !== 'all') {
+      conditions.push(arrayContains(schema.agents.labels, [category]));
+    }
+    conditions.push(not(arrayContains(schema.agents.labels, ['uncategorized'])));
+    return await this.db
+      .select()
+      .from(schema.agents)
+      .where(and(...conditions))
+      .orderBy(desc(schema.agents.updatedAt));
+  }
+
+  async getAllAgents(): Promise<schema.Agent[]> {
+    return await this.db.select().from(schema.agents);
+  }
+
+  async getAgentById(id: string): Promise<schema.Agent | undefined> {
+    const rows = await this.db
+      .select()
+      .from(schema.agents)
+      .where(eq(schema.agents.agentId, id))
+      .limit(1);
+    return rows[0];
+  }
+
+  async countAgents(): Promise<number> {
+    const rows = await this.db.select({ n: count() }).from(schema.agents);
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  async upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }): Promise<void> {
+    const existing = await this.db
+      .select()
+      .from(schema.agents)
+      .where(and(eq(schema.agents.chainId, agent.chainId), eq(schema.agents.agentId, agent.agentId)))
+      .limit(1);
+
+    const merged = {
+      ...existing[0],
+      ...agent,
+      updatedAt: new Date(),
+    };
+
+    await this.db
+      .insert(schema.agents)
+      .values(merged)
+      .onConflictDoUpdate({
+        target: [schema.agents.chainId, schema.agents.agentId],
+        set: merged,
+      });
+  }
+
+  async getHires(buyer?: string): Promise<schema.Hire[]> {
+    let query = this.db.select().from(schema.hires).orderBy(desc(schema.hires.createdAt));
+    if (buyer) {
+      query = query.where(sql`lower(${schema.hires.buyer}) = ${buyer.toLowerCase()}`);
+    }
+    return await query;
+  }
+
+  async getHireById(id: string): Promise<schema.Hire | undefined> {
+    const rows = await this.db.select().from(schema.hires).where(eq(schema.hires.id, id)).limit(1);
+    return rows[0];
+  }
+
+  async addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire> {
+    const values: any = { ...hire };
+    if (hire.id) values.id = hire.id;
+    const rows = await this.db.insert(schema.hires).values(values).returning();
+    return rows[0];
+  }
+
+  async updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null> {
+    const values = { ...updates, updatedAt: new Date() };
+    const rows = await this.db
+      .update(schema.hires)
+      .set(values)
+      .where(eq(schema.hires.id, id))
+      .returning();
+    const updated = rows[0];
+    if (!updated) return null;
+
+    // Bayesian Thompson update upon completion (mirrors MemoryStore semantics)
+    if (updates.state === 'submitted' || updates.state === 'paid') {
+      await this.db
+        .update(schema.agents)
+        .set({
+          banditAlpha: sql`${schema.agents.banditAlpha} + 1.0`,
+          successCount: sql`${schema.agents.successCount} + 1`,
+        })
+        .where(eq(schema.agents.agentId, updated.agentId));
+    } else if (updates.state === 'rejected' || updates.state === 'expired') {
+      await this.db
+        .update(schema.agents)
+        .set({
+          banditBeta: sql`${schema.agents.banditBeta} + 1.0`,
+          failureCount: sql`${schema.agents.failureCount} + 1`,
+        })
+        .where(eq(schema.agents.agentId, updated.agentId));
+    }
+
+    return updated;
+  }
+}
+
+/**
+ * In-memory fallback store to ensure zero crash if DATABASE_URL is missing in preview.
+ * Only used when Supabase is not configured.
+ */
+export class MemoryStore implements Store {
   private agents: schema.Agent[] = [];
   private hires: schema.Hire[] = [];
 
@@ -59,9 +199,10 @@ export class MemoryStore {
     }));
   }
 
-  public getAgents(filterActive = true, category?: string): schema.Agent[] {
+  public async getAgents(filterActive = true, category?: string, verifiedOnly = false): Promise<schema.Agent[]> {
     return this.agents.filter((a) => {
-      if (filterActive && (!a.active || !a.reachable || !a.hireable)) return false;
+      if (filterActive && !a.active) return false;
+      if (verifiedOnly && (!a.reachable || !a.hireable)) return false;
       if (category && category !== 'all' && !a.labels?.includes(category)) return false;
       // Do not include uncategorized in marketplace
       if (a.labels?.includes('uncategorized')) return false;
@@ -69,15 +210,19 @@ export class MemoryStore {
     });
   }
 
-  public getAllAgents(): schema.Agent[] {
+  public async getAllAgents(): Promise<schema.Agent[]> {
     return this.agents;
   }
 
-  public getAgentById(id: string): schema.Agent | undefined {
+  public async getAgentById(id: string): Promise<schema.Agent | undefined> {
     return this.agents.find((a) => a.agentId === id);
   }
 
-  public upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }) {
+  public async countAgents(): Promise<number> {
+    return this.agents.length;
+  }
+
+  public async upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }): Promise<void> {
     const idx = this.agents.findIndex((a) => a.chainId === agent.chainId && a.agentId === agent.agentId);
     if (idx >= 0) {
       this.agents[idx] = { ...this.agents[idx], ...agent, updatedAt: new Date() } as schema.Agent;
@@ -110,18 +255,18 @@ export class MemoryStore {
     }
   }
 
-  public getHires(buyer?: string): schema.Hire[] {
+  public async getHires(buyer?: string): Promise<schema.Hire[]> {
     if (buyer) {
       return this.hires.filter((h) => h.buyer.toLowerCase() === buyer.toLowerCase());
     }
     return this.hires;
   }
 
-  public getHireById(id: string): schema.Hire | undefined {
+  public async getHireById(id: string): Promise<schema.Hire | undefined> {
     return this.hires.find((h) => h.id === id);
   }
 
-  public addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): schema.Hire {
+  public async addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire> {
     const id = hire.id || `hire-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const newHire: schema.Hire = {
       ...hire,
@@ -133,7 +278,7 @@ export class MemoryStore {
     return newHire;
   }
 
-  public updateHire(id: string, updates: Partial<schema.Hire>): schema.Hire | null {
+  public async updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null> {
     const hire = this.hires.find((h) => h.id === id);
     if (!hire) return null;
     Object.assign(hire, updates, { updatedAt: new Date() });
@@ -157,4 +302,9 @@ export class MemoryStore {
   }
 }
 
-export const memoryStore = new MemoryStore();
+const memoryStore = new MemoryStore();
+
+/**
+ * Unified data store: real Supabase when configured, in-memory fallback otherwise.
+ */
+export const store: Store = db ? new SqlStore(db) : memoryStore;

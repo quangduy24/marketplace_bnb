@@ -19,7 +19,7 @@ interface HireModalProps {
     rail: 'x402' | 'erc8183';
     budgetU: string;
     taskSummary: string;
-    txHash: string;
+    txHash?: string;
   }) => Promise<void>;
   network: 'bscTestnet' | 'bscMainnet';
 }
@@ -80,18 +80,15 @@ export const HireModal: React.FC<HireModalProps> = ({
     setErrorMsg(null);
 
     try {
-      const randomHex = Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
-      const mockTxHash = `0x${randomHex}`;
-
+      // No fabricated transaction hashes. Real escrow funding happens on-chain
+      // after the agent accepts the job; the hire is recorded as 'pending' until
+      // the actual escrow transaction hash is synced back.
       await onConfirmHire({
         agentId: agent.agentId,
         catalog: career,
         rail,
         budgetU: isDemo ? '0.00' : budgetU,
         taskSummary: isDemo ? `[DEMO TRIAL] ${taskSummary}` : taskSummary,
-        txHash: mockTxHash,
       });
 
       onClose();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Briefcase, Wallet, Zap, ShieldAlert, Cpu } from 'lucide-react';
+import { AlertTriangle, Briefcase, Wallet, Zap, ShieldAlert, Cpu, ShieldCheck, BadgeCheck } from 'lucide-react';
 import { AppView, WalletContextState } from '../../types.ts';
 import { LansLogo } from '../common/LansLogo.tsx';
 
@@ -12,6 +12,9 @@ interface TopBarProps {
   contextState: WalletContextState;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
+  walletVerified?: boolean;
+  isVerifying?: boolean;
+  onVerifyWallet?: () => void;
   onNavigate: (view: AppView) => void;
   network: 'bscTestnet' | 'bscMainnet';
   onToggleNetwork: () => void;
@@ -36,6 +39,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   contextState,
   onConnectWallet,
   onDisconnectWallet,
+  walletVerified,
+  isVerifying,
+  onVerifyWallet,
   onNavigate,
   network,
   onToggleNetwork,
@@ -154,14 +160,39 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Web3 Connect / Disconnect Tactile Button */}
         {shortAddress ? (
-          <button
-            onClick={onDisconnectWallet}
-            title="Click to disconnect wallet"
-            className="neo-btn bg-[#00F59B] text-[#121212] font-mono-tech text-xs font-bold px-3 py-1.5 flex items-center space-x-1.5"
-          >
-            <Wallet className="w-3.5 h-3.5" />
-            <span>{shortAddress}</span>
-          </button>
+          <div className="flex items-center space-x-1.5">
+            {walletVerified ? (
+              <span
+                className="neo-badge bg-[#00F59B] text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech font-black border border-[#121212] hidden sm:flex items-center space-x-0.5"
+                title="Wallet identity verified via free signature (0 gas)"
+              >
+                <BadgeCheck className="w-3 h-3" />
+                <span>VERIFIED</span>
+              </span>
+            ) : (
+              <button
+                onClick={onVerifyWallet}
+                disabled={isVerifying}
+                title={
+                  isVerifying
+                    ? 'Waiting for your signature confirmation in the wallet...'
+                    : 'Identity not verified — click to sign the free message again'
+                }
+                className="neo-badge bg-[#FAF7F0] text-[#8A8A8A] text-[8px] px-1.5 py-0.5 font-mono-tech font-black border border-[#121212] hidden sm:flex items-center space-x-0.5 cursor-pointer disabled:cursor-wait"
+              >
+                <ShieldCheck className="w-3 h-3" />
+                <span>{isVerifying ? 'VERIFYING...' : 'UNVERIFIED'}</span>
+              </button>
+            )}
+            <button
+              onClick={onDisconnectWallet}
+              title="Click to disconnect wallet"
+              className="neo-btn bg-[#00F59B] text-[#121212] font-mono-tech text-xs font-bold px-3 py-1.5 flex items-center space-x-1.5"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>{shortAddress}</span>
+            </button>
+          </div>
         ) : (
           <button
             onClick={onConnectWallet}

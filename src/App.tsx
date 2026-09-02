@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppView, AgentData, HireData, WalletContextState, CareerCategory } from './types.ts';
 import { TopBar } from './components/hud/TopBar.tsx';
 import { LeftNav } from './components/hud/LeftNav.tsx';
 import { BottomActionBar } from './components/hud/BottomActionBar.tsx';
+import { WalletPickerModal } from './components/hud/WalletPickerModal.tsx';
 import { StoryBeatController } from './components/story/StoryBeatController.tsx';
 import { TownMap } from './components/game/TownMap.tsx';
 import { MarketplaceView } from './components/market/MarketplaceView.tsx';
@@ -10,26 +11,59 @@ import { AgentHouse } from './components/game/AgentHouse.tsx';
 import { HistoryBookView } from './components/history/HistoryBookView.tsx';
 import { ProfitsDashboard } from './components/profits/ProfitsDashboard.tsx';
 import { AutoDemoRunner } from './components/demo/AutoDemoRunner.tsx';
+import {
+  BscNetwork,
+  BSC_CHAIN_IDS,
+  Eip1193Provider,
+  WalletOption,
+  discoverWallets,
+  onEip6963Announce,
+  connectWallet,
+  switchBscChain,
+  signVerificationMessage,
+  fetchNativeBalance,
+  fetchUBalance,
+} from './lib/wallet.ts';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AppView>('story');
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [hires, setHires] = useState<HireData[]>([]);
-  const [walletAddress, setWalletAddress] = useState<string>('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D');
-  const [walletBalanceU, setWalletBalanceU] = useState<number>(145.0);
-  const [walletBalanceBnb, setWalletBalanceBnb] = useState<number>(2.38);
-  const [network, setNetwork] = useState<'bscTestnet' | 'bscMainnet'>('bscTestnet');
+  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletBalanceU, setWalletBalanceU] = useState<number>(0);
+  const [walletBalanceBnb, setWalletBalanceBnb] = useState<number>(0);
+  const [network, setNetwork] = useState<BscNetwork>('bscTestnet');
   const [focusedChamber, setFocusedChamber] = useState<CareerCategory | null>(null);
 
   const [walletContext, setWalletContext] = useState<WalletContextState>({
-    healthFactor: 1.12, // Critical alert trigger by default to showcase heuristic engine!
-    hasEmergencyShortfall: true,
-    totalCollateralUSD: 14500,
-    totalBorrowUSD: 12940,
-    shortfallUSD: 450,
-    pancakePositionsCount: 3,
-    idleStableUSD: 2400,
+    hasEmergencyShortfall: false,
+    healthFactor: 2.45,
   });
+
+  // Lightweight toast notification
+  const [toast, setToast] = useState<{ id: number; text: string; kind: 'ok' | 'err' } | null>(null);
+  const notify = useCallback((text: string, kind: 'ok' | 'err' = 'ok') => {
+    const id = Date.now();
+    setToast({ id, text, kind });
+    setTimeout(() => {
+      setToast((t) => (t && t.id === id ? null : t));
+    }, 5000);
+  }, []);
+
+  // Wallet picker
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [pickerWallets, setPickerWallets] = useState<WalletOption[]>([]);
+  const [walletVerified, setWalletVerified] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const activeProviderRef = useRef<Eip1193Provider | null>(null);
+
+  // Live EIP-6963 discovery while the picker is open
+  useEffect(() => {
+    if (!walletPickerOpen) return;
+    return onEip6963Announce((wallet) => {
+      setPickerWallets((prev) => (prev.some((w) => w.id === wallet.id) ? prev : [...prev, wallet]));
+    });
+  }, [walletPickerOpen]);
 
   // Fetch agents from API
   const fetchAgents = useCallback(async () => {
@@ -61,20 +95,42 @@ export default function App() {
     }
   }, [walletAddress]);
 
-  // Fetch context from API
+  // Fetch context from API (real Venus on-chain health factor for the connected wallet)
   const fetchContext = useCallback(async () => {
     try {
       const res = await fetch(`/api/context?wallet=${walletAddress}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.context) {
-          setWalletContext(data.context);
-        }
+        setWalletContext({
+          ...data,
+          totalCollateralUSD: data.totalCollateralUSD,
+          totalBorrowUSD: data.totalBorrowUSD,
+          shortfallUSD: data.shortfallUSD,
+        });
       }
     } catch (err) {
       console.warn('Failed to fetch context', err);
     }
   }, [walletAddress]);
+
+  // Refresh real on-chain balances for the connected wallet. Returns { bnb, u }.
+  const refreshBalances = useCallback(async (address: string, chain: BscNetwork) => {
+    if (!address) {
+      setWalletBalanceU(0);
+      setWalletBalanceBnb(0);
+      return { bnb: 0, u: 0 };
+    }
+    const bnb = await fetchNativeBalance(address, chain);
+    setWalletBalanceBnb(bnb);
+    let u = 0;
+    if (chain === 'bscMainnet') {
+      u = await fetchUBalance(address);
+      setWalletBalanceU(u);
+    } else {
+      setWalletBalanceU(0);
+    }
+    return { bnb, u };
+  }, []);
 
   useEffect(() => {
     fetchAgents();
@@ -89,85 +145,55 @@ export default function App() {
     rail: 'x402' | 'erc8183';
     budgetU: string;
     taskSummary: string;
-    txHash: string;
+    txHash?: string;
   }) => {
-    try {
-      const res = await fetch('/api/hires', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentId: payload.agentId,
-          buyerAddress: walletAddress,
-          catalog: payload.catalog,
-          rail: payload.rail,
-          budgetU: payload.budgetU,
-          taskSummary: payload.taskSummary,
-          txHash: payload.txHash,
-        }),
-      });
+    const res = await fetch('/api/hires', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        buyer: walletAddress,
+        chainId: network === 'bscMainnet' ? 56 : 97,
+        agentId: payload.agentId,
+        catalog: payload.catalog,
+        rail: payload.rail,
+        budgetU: payload.budgetU,
+        taskSummary: payload.taskSummary,
+        txHash: payload.txHash,
+      }),
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.hire) {
-          setHires((prev) => [data.hire, ...prev]);
-        }
-      } else {
-        // Fallback local hire state update
-        const newHire: HireData = {
-          id: `hire-${Date.now()}`,
-          jobId: `job-bsc-${Date.now()}`,
-          agentId: payload.agentId,
-          buyer: walletAddress,
-          buyerAddress: walletAddress,
-          chainId: 97,
-          catalog: payload.catalog,
-          rail: payload.rail,
-          state: 'funded',
-          budgetU: payload.budgetU,
-          txs: [payload.txHash],
-          lastAction: 'Escrow funded on BSC Testnet',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setHires((prev) => [newHire, ...prev]);
-      }
-
-      // Deduct budget
-      setWalletBalanceU((prev) => Math.max(0, prev - Number(payload.budgetU)));
-
-      // Switch to Agent House to witness active chamber!
-      setFocusedChamber(payload.catalog as CareerCategory);
-      setCurrentView('agents');
-    } catch (err) {
-      console.error('Hire error:', err);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => 'Unknown error');
+      throw new Error(`Hire request failed (${res.status}): ${errText}`);
     }
+
+    const hire = await res.json();
+    setHires((prev) => [hire, ...prev]);
+
+    // Switch to Agent House to witness active chamber!
+    setFocusedChamber(payload.catalog as CareerCategory);
+    setCurrentView('agents');
   };
 
   // Sync state transition for an agent job in the house
   const handleSyncJobState = async (hireId: string, newState: string, lastAction?: string) => {
     try {
-      await fetch(`/api/hires/${hireId}/state`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/hires/${hireId}/sync`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state: newState, lastAction }),
       });
 
-      setHires((prev) =>
-        prev.map((h) =>
-          h.id === hireId
-            ? { ...h, state: newState as any, lastAction: lastAction || h.lastAction }
-            : h
-        )
-      );
+      if (!res.ok) {
+        throw new Error(`Sync failed (${res.status})`);
+      }
 
-      // If job resolved to paid, update health factor or give alpha
-      if (newState === 'paid') {
-        setWalletContext((prev) => ({
-          ...prev,
-          healthFactor: 1.48, // Loan saved!
-          hasEmergencyShortfall: false,
-          shortfallUSD: 0,
-        }));
+      const updated = await res.json();
+      setHires((prev) => prev.map((h) => (h.id === hireId ? { ...h, ...updated } : h)));
+
+      // Job resolved — refresh real wallet context from the chain
+      if (newState === 'paid' || newState === 'rejected' || newState === 'expired') {
+        fetchContext();
       }
     } catch (err) {
       console.error('Sync job error', err);
@@ -179,16 +205,101 @@ export default function App() {
     setCurrentView('agents');
   };
 
-  const handleConnectWallet = () => {
-    setWalletAddress('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D');
+  const handleConnectWallet = async () => {
+    setPickerWallets(discoverWallets());
+    setWalletPickerOpen(true);
+  };
+
+  // Identity verification: user must confirm a free (0 gas) signature in their wallet
+  const verifyWalletIdentity = useCallback(
+    async (provider: Eip1193Provider, address: string) => {
+      setIsVerifying(true);
+      try {
+        const { message, signature } = await signVerificationMessage(provider, address, network);
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: address, signature, chainId: BSC_CHAIN_IDS[network] }),
+        });
+        const data = await res.json();
+        if (data.verified) {
+          setWalletVerified(true);
+          notify('Identity verified — signature confirmed on BNB Chain (0 gas)', 'ok');
+        } else {
+          setWalletVerified(false);
+          notify('Signature verification failed — please retry', 'err');
+        }
+      } catch (err: any) {
+        if (err?.code === 4001 || String(err?.message || '').toLowerCase().includes('reject')) {
+          notify('Signature skipped — tap UNVERIFIED badge next to your address to sign (0 gas)', 'err');
+        } else {
+          console.error('Identity verification failed:', err);
+          notify(`Signature verification failed: ${String(err?.message || err).slice(0, 100)}`, 'err');
+        }
+      } finally {
+        setIsVerifying(false);
+      }
+    },
+    [network, notify]
+  );
+
+  const handleVerifyWallet = async () => {
+    const provider = activeProviderRef.current || discoverWallets()[0]?.provider || null;
+    if (!walletAddress || !provider) {
+      notify('Please connect a wallet first', 'err');
+      return;
+    }
+    await verifyWalletIdentity(provider, walletAddress);
+  };
+
+  const handleSelectWallet = async (wallet: WalletOption) => {
+    setWalletPickerOpen(false);
+    try {
+      const address = await connectWallet(wallet.provider, network);
+      activeProviderRef.current = wallet.provider;
+      setWalletVerified(false);
+      setWalletAddress(address);
+      const { bnb } = await refreshBalances(address, network);
+      notify(
+        `Wallet connected: ${address.slice(0, 6)}...${address.slice(-4)} — ${bnb.toFixed(2)} BNB (${network === 'bscMainnet' ? 'BSC Mainnet' : 'BSC Testnet'})`,
+        'ok'
+      );
+      // Next step automatically: request free signature confirmation in the wallet
+      notify('Now confirm the free signature in your wallet to verify identity (0 gas)', 'ok');
+      await verifyWalletIdentity(wallet.provider, address);
+    } catch (err: any) {
+      console.error('Wallet connect failed:', err);
+      const detail = err?.message ? ` (${String(err.message).slice(0, 120)})` : '';
+      notify(`Wallet connection failed${detail}`, 'err');
+    }
   };
 
   const handleDisconnectWallet = () => {
+    activeProviderRef.current = null;
+    setWalletVerified(false);
+    setIsVerifying(false);
     setWalletAddress('');
+    setWalletBalanceU(0);
+    setWalletBalanceBnb(0);
+    notify('Wallet disconnected', 'ok');
   };
 
-  const handleToggleNetwork = () => {
-    setNetwork((prev) => (prev === 'bscTestnet' ? 'bscMainnet' : 'bscTestnet'));
+  const handleToggleNetwork = async () => {
+    const next: BscNetwork = network === 'bscTestnet' ? 'bscMainnet' : 'bscTestnet';
+    try {
+      if (walletAddress) {
+        const provider = activeProviderRef.current || discoverWallets()[0]?.provider || null;
+        if (provider) {
+          await switchBscChain(provider, next);
+        }
+        await refreshBalances(walletAddress, next);
+      }
+      setNetwork(next);
+      notify(`Network switched to ${next === 'bscMainnet' ? 'BSC Mainnet' : 'BSC Testnet'}`, 'ok');
+    } catch (err) {
+      console.error('Network switch failed:', err);
+      notify(`Could not switch to ${next === 'bscMainnet' ? 'BSC Mainnet' : 'BSC Testnet'} in your wallet.`, 'err');
+    }
   };
 
   const activeJobsCount = hires.filter(
@@ -207,6 +318,9 @@ export default function App() {
         contextState={walletContext}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
+        walletVerified={walletVerified}
+        isVerifying={isVerifying}
+        onVerifyWallet={handleVerifyWallet}
         onNavigate={(view) => setCurrentView(view)}
         network={network}
         onToggleNetwork={handleToggleNetwork}
@@ -287,6 +401,28 @@ export default function App() {
         onSelectHiredSlot={handleSelectHiredSlot}
         onNavigate={(view) => setCurrentView(view)}
       />
+
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 font-mono-tech text-xs font-bold border-2 border-[#121212] neo-shadow-xl max-w-[90vw] ${
+            toast.kind === 'ok' ? 'bg-[#00F59B] text-[#121212]' : 'bg-[#FF4365] text-white'
+          }`}
+          role="status"
+        >
+          {toast.kind === 'ok' ? '✓ ' : '✕ '}
+          {toast.text}
+        </div>
+      )}
+
+      {/* Wallet picker modal */}
+      {walletPickerOpen && (
+        <WalletPickerModal
+          wallets={pickerWallets}
+          onSelect={handleSelectWallet}
+          onClose={() => setWalletPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -106,8 +106,9 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                   const agent = agents.find((a) => a.agentId === hire.agentId);
                   const career = (hire.catalog || 'monitoring') as CareerCategory;
                   const spriteSrc = getPixelSprite(career);
-                  const firstTx =
-                    hire.txs?.[0] || '0x7a3e9c1f8d42b083e47915b4931a78e47c78096cba8714e82b7d2f4001c23f11';
+                  const firstTx = hire.txs?.[0] || null;
+                  const explorerBase =
+                    hire.chainId === 56 ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx';
 
                   const stateBadge =
                     hire.state === 'paid'
@@ -165,15 +166,19 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                       </td>
 
                       <td className="py-2.5 px-2">
-                        <a
-                          href={`https://testnet.bscscan.com/tx/${firstTx}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#2563EB] font-bold hover:underline flex items-center space-x-1"
-                        >
-                          <span>{firstTx.slice(0, 8)}...{firstTx.slice(-6)}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                        {firstTx ? (
+                          <a
+                            href={`${explorerBase}/${firstTx}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#2563EB] font-bold hover:underline flex items-center space-x-1"
+                          >
+                            <span>{firstTx.slice(0, 8)}...{firstTx.slice(-6)}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-[#A0A0A0]">— pending on-chain tx</span>
+                        )}
                       </td>
 
                       <td className="py-2.5 px-3 text-right">

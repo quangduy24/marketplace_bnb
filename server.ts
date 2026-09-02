@@ -2,9 +2,13 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { memoryStore } from './lib/supabase.ts';
+import { verifyMessage } from 'viem';
+import { store, db } from './lib/supabase.ts';
+import { ensureSchema } from './lib/bootstrap.ts';
+import { buildVerificationMessage } from './lib/auth-message.ts';
 import { computeBanditScore } from './lib/bandit.ts';
 import { analyzeWalletContext } from './lib/context.ts';
+import { CONTRACT_ADDRESSES } from './lib/chain.ts';
 import { runSemanticSync, runIncrementalSync } from './workers/sync.ts';
 import { runClassificationWorker } from './workers/classify.ts';
 import { runProbeWorker } from './workers/probe.ts';
@@ -13,6 +17,15 @@ import { runClassificationUnitTests } from './lib/classify.ts';
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT ?? 3000);
+
+  // Ensure Supabase schema exists before serving traffic
+  if (db) {
+    try {
+      await ensureSchema(db);
+    } catch (err) {
+      console.warn('[Bootstrap] ensureSchema failed (falling back to whatever exists):', err);
+    }
+  }
 
   app.use(express.json());
 
@@ -36,12 +49,14 @@ async function startServer() {
 
   // List & Rank Agents with 2-Stage Recommendation Engine
   app.get('/api/agents', async (req, res) => {
-    const { category, activeOnly = 'true', wallet, q } = req.query;
+    const { category, activeOnly = 'true', verifiedOnly = 'false', wallet, q } = req.query;
     const isActiveOnly = activeOnly === 'true';
+    const isVerifiedOnly = verifiedOnly === 'true';
     const categoryStr = (category as string) || 'all';
 
-    // Stage 1: Hard SQL/Store filter
-    let pool = memoryStore.getAgents(isActiveOnly, categoryStr);
+    // Stage 1: Hard SQL/Store filter (real DB when configured)
+    // verifiedOnly adds reachable && hireable; default lists every active labeled agent.
+    let pool = await store.getAgents(isActiveOnly, categoryStr, isVerifiedOnly);
 
     // Search filter if provided
     if (q && typeof q === 'string') {
@@ -96,8 +111,8 @@ async function startServer() {
   });
 
   // Get Agent Detail
-  app.get('/api/agents/:id', (req, res) => {
-    const agent = memoryStore.getAgentById(req.params.id);
+  app.get('/api/agents/:id', async (req, res) => {
+    const agent = await store.getAgentById(req.params.id);
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
@@ -105,16 +120,16 @@ async function startServer() {
   });
 
   // List Hires (optionally filtered by buyer)
-  app.get('/api/hires', (req, res) => {
+  app.get('/api/hires', async (req, res) => {
     const buyer = req.query.buyer as string | undefined;
-    const hiresList = memoryStore.getHires(buyer);
+    const hiresList = await store.getHires(buyer);
     res.json({ hires: hiresList, count: hiresList.length });
   });
 
   // Prepare quote payload for hiring (ERC-8183 / x402)
-  app.post('/api/hires/prepare', (req, res) => {
+  app.post('/api/hires/prepare', async (req, res) => {
     const { agentId, budgetU, rail, taskSummary } = req.body;
-    const agent = memoryStore.getAgentById(agentId);
+    const agent = await store.getAgentById(agentId);
 
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found for quoting' });
@@ -134,7 +149,10 @@ async function startServer() {
       budgetU: budget.toFixed(2),
       deadline: deadlineTimestamp,
       taskSummary: taskSummary || 'Autonomous periodic inspection',
-      contractAddress: agent.chainId === 97 ? '0x8004A818BFB912233c491871b3d84c89A494BD9e' : '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+      contractAddress:
+        agent.chainId === 97
+          ? CONTRACT_ADDRESSES.ERC8004_TESTNET
+          : CONTRACT_ADDRESSES.ERC8004_MAINNET,
       escrowTerms: {
         timeoutHours: 24,
         releaseRule: 'Client verification upon proof receipt',
@@ -145,34 +163,35 @@ async function startServer() {
   });
 
   // Create new hire record (buyer confirmed & signed on client)
-  app.post('/api/hires', (req, res) => {
-    const { buyer, chainId, agentId, catalog, rail, jobId, txHash, budgetU, lastAction } = req.body;
+  app.post('/api/hires', async (req, res) => {
+    const { buyer, buyerAddress, chainId, agentId, catalog, rail, jobId, txHash, budgetU, lastAction } = req.body;
+    const resolvedBuyer = buyer || buyerAddress;
 
-    if (!buyer || !agentId || !catalog || !rail) {
-      return res.status(400).json({ error: 'Missing required hire fields' });
+    if (!resolvedBuyer || !agentId || !catalog || !rail) {
+      return res.status(400).json({ error: 'Missing required hire fields (buyer, agentId, catalog, rail)' });
     }
 
-    const hire = memoryStore.addHire({
-      buyer,
+    const hire = await store.addHire({
+      buyer: resolvedBuyer,
       chainId: chainId || 97,
       agentId,
       catalog,
       rail,
       jobId: jobId || `job_bsc_${Date.now()}`,
       txs: txHash ? [txHash] : [],
-      state: 'funded',
+      state: txHash ? 'funded' : 'pending',
       budgetU: budgetU ? String(budgetU) : '10.00',
       artifactUri: null,
-      lastAction: lastAction || 'Escrow deposit funded by buyer on BSC',
+      lastAction: lastAction || (txHash ? 'Escrow deposit funded by buyer on BSC' : 'Awaiting on-chain escrow funding'),
     });
 
     res.status(201).json(hire);
   });
 
   // Sync on-chain status for a hire
-  app.post('/api/hires/:id/sync', (req, res) => {
+  app.post('/api/hires/:id/sync', async (req, res) => {
     const { state, txHash, artifactUri, lastAction } = req.body;
-    const hire = memoryStore.getHireById(req.params.id);
+    const hire = await store.getHireById(req.params.id);
 
     if (!hire) {
       return res.status(404).json({ error: 'Hire record not found' });
@@ -186,7 +205,7 @@ async function startServer() {
       updates.txs = [...(hire.txs || []), txHash];
     }
 
-    const updated = memoryStore.updateHire(req.params.id, updates);
+    const updated = await store.updateHire(req.params.id, updates);
     res.json(updated);
   });
 
@@ -212,6 +231,26 @@ async function startServer() {
     res.json({ success: true, result });
   });
 
+  // Wallet identity verification: free 0-gas signature check (personal_sign)
+  app.post('/api/auth/verify', async (req, res) => {
+    const { wallet, signature, chainId } = req.body || {};
+    if (!wallet || !signature || typeof wallet !== 'string' || typeof signature !== 'string') {
+      return res.status(400).json({ verified: false, error: 'Missing wallet or signature' });
+    }
+
+    const message = buildVerificationMessage(wallet, Number(chainId) || 97);
+    try {
+      const verified = await verifyMessage({
+        address: wallet as `0x${string}`,
+        message,
+        signature: signature as `0x${string}`,
+      });
+      res.json({ verified, message });
+    } catch (err) {
+      res.json({ verified: false, error: 'Signature verification failed' });
+    }
+  });
+
   // Vite middleware for development vs static serve for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -230,6 +269,33 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Agent Villa] Server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Background auto-sync: initial semantic crawl if empty, then hourly incremental + probe
+  if (process.env.AUTO_SYNC !== 'false') {
+    const intervalMs = Number(process.env.SYNC_INTERVAL_MS ?? 3600000);
+    setTimeout(async () => {
+      try {
+        const total = await store.countAgents();
+        if (total === 0) {
+          console.log('[AutoSync] Agents table empty — running initial semantic sync...');
+          await runSemanticSync();
+        } else {
+          console.log(`[AutoSync] Agents table has ${total} rows — skipping initial sync.`);
+        }
+      } catch (err) {
+        console.warn('[AutoSync] Initial sync failed:', err);
+      }
+
+      setInterval(async () => {
+        try {
+          await runIncrementalSync(2);
+          await runProbeWorker();
+        } catch (err) {
+          console.warn('[AutoSync] Interval sync failed:', err);
+        }
+      }, intervalMs);
+    }, 2000);
+  }
 }
 
 startServer();
