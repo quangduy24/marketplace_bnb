@@ -123,8 +123,8 @@ lans-sanctuary/
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/lans-sanctuary.git
-   cd lans-sanctuary
+   git clone https://github.com/quangduy24/marketplace_bnb.git
+   cd marketplace_bnb
    ```
 
 2. **Install dependencies**:

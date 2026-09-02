@@ -4,6 +4,15 @@
  */
 import { createPublicClient, http, defineChain } from 'viem';
 
+const DEFAULT_MAINNET_RPCS = ['https://binance.llamarpc.com', 'https://bsc-dataseed.binance.org'];
+const DEFAULT_TESTNET_RPCS = ['https://data-seed-prebsc-1-s1.binance.org:8545', 'https://bsc-testnet.publicnode.com'];
+
+function rpcList(envValue: string | undefined, fallback: string[]): string[] {
+  if (!envValue) return fallback;
+  const list = envValue.split(',').map((u) => u.trim()).filter(Boolean);
+  return list.length > 0 ? list : fallback;
+}
+
 export const bscMainnet = defineChain({
   id: 56,
   name: 'BNB Smart Chain',
@@ -13,7 +22,7 @@ export const bscMainnet = defineChain({
     symbol: 'BNB',
   },
   rpcUrls: {
-    default: { http: ['https://binance.llamarpc.com', 'https://bsc-dataseed.binance.org'] },
+    default: { http: rpcList(process.env.BSC_MAINNET_RPC_URLS, DEFAULT_MAINNET_RPCS) },
   },
   blockExplorers: {
     default: { name: 'BscScan', url: 'https://bscscan.com' },
@@ -29,7 +38,7 @@ export const bscTestnet = defineChain({
     symbol: 'tBNB',
   },
   rpcUrls: {
-    default: { http: ['https://data-seed-prebsc-1-s1.binance.org:8545', 'https://bsc-testnet.publicnode.com'] },
+    default: { http: rpcList(process.env.BSC_TESTNET_RPC_URLS, DEFAULT_TESTNET_RPCS) },
   },
   blockExplorers: {
     default: { name: 'BscScan Testnet', url: 'https://testnet.bscscan.com' },

@@ -19,7 +19,7 @@ export interface Raw8004Agent {
   raw_json?: any;
 }
 
-const BASE_URL = 'https://api.8004scan.io/api/v1';
+const BASE_URL = process.env.SCAN_8004_API_URL ?? 'https://api.8004scan.io/api/v1';
 
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

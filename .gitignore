@@ -4,5 +4,19 @@ dist/
 coverage/
 .DS_Store
 *.log
+
+# Environment variables & secrets
 .env*
 !.env.example
+.env.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+*.p12
+secrets/
+
+# Local agent tooling & skill configs
+.agents/
+.claude/
