@@ -280,7 +280,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* Bottom Action Bar: 6 Slots */}
+      {/* Bottom Action Bar: Unlimited Hired Squad */}
       <BottomActionBar
         hires={hires}
         agents={agents}

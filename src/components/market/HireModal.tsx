@@ -315,7 +315,7 @@ export const HireModal: React.FC<HireModalProps> = ({
           )}
         </div>
 
-        {/* 3 Golden Beginner Guarantees */}
+        {/* 4 Golden Guarantees */}
         <div className="bg-[#FAF7F0] border-2 border-[#121212] p-2.5 mb-3.5 space-y-1 text-[10px] font-mono-tech">
           <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -324,6 +324,10 @@ export const HireModal: React.FC<HireModalProps> = ({
           <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
             <span>100% refund guarantee if agent fails verification proof</span>
+          </div>
+          <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
+            <Check className="w-3.5 h-3.5 stroke-[3]" />
+            <span>∞ Unlimited agent squad: hire and run as many concurrent agents as you need</span>
           </div>
           <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
             <Check className="w-3.5 h-3.5 stroke-[3]" />

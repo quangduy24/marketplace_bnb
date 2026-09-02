@@ -75,9 +75,10 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   focusedChamber,
 }) => {
   const [selectedJobToInspect, setSelectedJobToInspect] = useState<HireData | null>(null);
+  const [activeWorkerIndex, setActiveWorkerIndex] = useState<Record<string, number>>({});
 
-  const getHireForChamber = (cat: CareerCategory): HireData | undefined => {
-    return hires.find((h) => h.catalog === cat);
+  const getHiresForChamber = (cat: CareerCategory): HireData[] => {
+    return hires.filter((h) => h.catalog === cat);
   };
 
   return (
@@ -120,7 +121,10 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
       {/* 4-Chamber Grid Layout */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 my-3 overflow-y-auto pr-1">
         {CHAMBERS.map((chamber) => {
-          const hire = getHireForChamber(chamber.id);
+          const chamberHires = getHiresForChamber(chamber.id);
+          const currentIdx = activeWorkerIndex[chamber.id] || 0;
+          const safeIdx = chamberHires.length > 0 ? Math.min(currentIdx, chamberHires.length - 1) : 0;
+          const hire = chamberHires[safeIdx] || null;
           const agent = hire ? agents.find((a) => a.agentId === hire.agentId) : null;
           const isFocused = focusedChamber === chamber.id;
           const isAlert = chamber.id === 'health_factor' && healthFactor < 1.15;
@@ -150,27 +154,66 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     <h3 className="font-display font-extrabold text-xs sm:text-sm text-[#121212]">
                       {chamber.name}
                     </h3>
+                    {chamberHires.length > 1 && (
+                      <span className="neo-badge bg-[#00F59B] text-[#121212] text-[8px] font-black px-1.5 py-0.2">
+                        {chamberHires.length} ACTIVE
+                      </span>
+                    )}
                   </div>
                   <span className="font-mono-tech text-[10px] text-[#6A6A6A] block mt-0.5 font-medium">
                     {chamber.subname}
                   </span>
                 </div>
 
-                {hire && (
-                  <span
-                    className={`neo-badge text-[9px] px-2 py-0.5 ${
-                      hire.state === 'running' || hire.state === 'funded'
-                        ? 'bg-[#00F59B] text-[#121212]'
-                        : hire.state === 'submitted'
-                        ? 'bg-[#FFE500] text-[#121212]'
-                        : hire.state === 'paid'
-                        ? 'bg-[#38BDF8] text-[#121212]'
-                        : 'bg-[#FF4365] text-white'
-                    }`}
-                  >
-                    STATE: {hire.state.toUpperCase()}
-                  </span>
-                )}
+                <div className="flex items-center space-x-1.5">
+                  {chamberHires.length > 1 && (
+                    <div className="flex items-center space-x-1 font-mono-tech text-[9px] bg-[#FAF7F0] px-1.5 py-0.5 border border-[#121212]">
+                      <button
+                        onClick={() =>
+                          setActiveWorkerIndex((prev) => ({
+                            ...prev,
+                            [chamber.id]: (safeIdx - 1 + chamberHires.length) % chamberHires.length,
+                          }))
+                        }
+                        className="hover:bg-[#FFE500] px-1 font-bold"
+                        title="Previous agent"
+                      >
+                        ◀
+                      </button>
+                      <span className="font-bold">
+                        {safeIdx + 1}/{chamberHires.length}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setActiveWorkerIndex((prev) => ({
+                            ...prev,
+                            [chamber.id]: (safeIdx + 1) % chamberHires.length,
+                          }))
+                        }
+                        className="hover:bg-[#FFE500] px-1 font-bold"
+                        title="Next agent"
+                      >
+                        ▶
+                      </button>
+                    </div>
+                  )}
+
+                  {hire && (
+                    <span
+                      className={`neo-badge text-[9px] px-2 py-0.5 ${
+                        hire.state === 'running' || hire.state === 'funded'
+                          ? 'bg-[#00F59B] text-[#121212]'
+                          : hire.state === 'submitted'
+                          ? 'bg-[#FFE500] text-[#121212]'
+                          : hire.state === 'paid'
+                          ? 'bg-[#38BDF8] text-[#121212]'
+                          : 'bg-[#FF4365] text-white'
+                      }`}
+                    >
+                      STATE: {hire.state.toUpperCase()}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Chamber Visual Stage */}
@@ -257,6 +300,14 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                   </span>
 
                   <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={onNavigateMarket}
+                      className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] font-mono-tech text-[9px] px-2 py-0.5 font-bold"
+                      title="Hire an additional agent in this category"
+                    >
+                      + HIRE MORE
+                    </button>
+
                     {hire.state === 'funded' && (
                       <button
                         onClick={() => onSyncJobState(hire.id, 'running', 'Agent listening to live BSC blocks')}

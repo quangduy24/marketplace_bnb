@@ -7,17 +7,13 @@ import {
   ShieldAlert,
   Search,
   CheckCircle2,
-  AlertCircle,
   Scale,
-  Sparkles,
   Zap,
-  SlidersHorizontal,
   HelpCircle,
-  ShieldCheck,
   Flame,
   Check,
   BookOpen,
-  Compass,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface MarketplaceViewProps {
@@ -36,95 +32,59 @@ interface StallMetadata {
   accent: string;
   accentBg: string;
   issueCode: string;
-  whenToUse: string;
-  costExplanation: string;
-  keyFeatures: string[];
   startingRate: string;
-  avgOutcome: string;
-  badgeLabel?: string;
-  iconType: 'shield' | 'coins' | 'chart' | 'eye';
+  benefit: string;
+  icon: string;
 }
 
 const STALLS_CONFIG: StallMetadata[] = [
   {
     id: 'health_factor',
     name: 'HEALTH FACTOR CITADEL',
-    subtitle: 'Venus Liquidation Guardian',
-    purpose: 'Autonomously defends loan collateral to prevent devastating 8% - 15% liquidation seizure penalties',
+    subtitle: 'Venus Loan Protection',
+    purpose: 'Autonomously monitors Venus loan collateral to prevent 8% - 15% liquidation seizure penalties.',
     accent: '#FF4365',
-    accentBg: '#FFE4E8',
+    accentBg: '#FFF1F2',
     issueCode: 'RISK.03',
-    whenToUse: 'When borrowing on Venus Protocol and your Health Factor approaches or dips below 1.25',
-    costExplanation: '~0.30 $U/hr (Low insurance premium to safeguard thousands of dollars in collateral)',
-    keyFeatures: [
-      'Probes wallet loan safety ratio on-chain every 3 seconds',
-      'Auto-injects flash collateral or repays debt during flash crashes',
-      'Saves between 8% to 15% in liquidation penalty costs',
-    ],
     startingRate: '0.30 $U/hr',
-    avgOutcome: 'Saved $1,840+ in protected collateral',
-    badgeLabel: 'CRITICAL DEFENSE',
-    iconType: 'shield',
+    benefit: 'Saves 8% - 15% liquidation loss',
+    icon: '🛡️',
   },
   {
     id: 'yield',
     name: 'YIELD GREENHOUSE',
-    subtitle: 'Optimal Compounder & Vault Allocator',
-    purpose: 'Autonomously identifies top-yielding vaults across BSC and auto-compounds interest',
+    subtitle: 'Optimal Yield Compounder',
+    purpose: 'Routes idle stablecoins into top-yielding BSC vaults and automatically compounds interest.',
     accent: '#00F59B',
-    accentBg: '#D1FAE5',
+    accentBg: '#ECFDF5',
     issueCode: 'APY.04',
-    whenToUse: 'When holding idle USDT, BUSD, or BNB and seeking safe 12% - 18% APY compounding',
-    costExplanation: '~0.20 $U/hr (Fraction of a coffee cup per day for non-stop yield compounding)',
-    keyFeatures: [
-      'Auto-sweeps idle capital across Venus, Thena, and Beefy',
-      'Triggers auto-compounding harvest cycles with optimized gas',
-      'Zero lockup: withdraw your principal and yield at any moment',
-    ],
     startingRate: '0.20 $U/hr',
-    avgOutcome: '~14.8% Real Net APY compounded',
-    badgeLabel: 'MOST POPULAR',
-    iconType: 'coins',
+    benefit: 'Compounds ~14.8% Net APY',
+    icon: '💰',
   },
   {
     id: 'grid',
     name: 'GRID DRAFT WORKSHOP',
-    subtitle: 'Dynamic Range Trading Engine',
-    purpose: 'Autonomously repositions PancakeSwap V3 concentrated liquidity to maximize swap fee capture',
+    subtitle: 'Dynamic Range Re-balancer',
+    purpose: 'Dynamically re-centers PancakeSwap V3 LP ranges to eliminate dormant capital and maximize swap fee capture.',
     accent: '#FF7828',
-    accentBg: '#FFEDD5',
+    accentBg: '#FFF7ED',
     issueCode: 'DEX.02',
-    whenToUse: 'When your LP positions drift out of range and stop earning swap fees during volatility',
-    costExplanation: '~0.45 $U/hr (Increases fee capture yield up to 3x compared to static ranges)',
-    keyFeatures: [
-      'Dynamic tick re-centering during market momentum shifts',
-      'Eliminates dormant LP positions by keeping capital active in range',
-      'Yields 2.5x to 3.2x higher swap fee share over static LPing',
-    ],
     startingRate: '0.45 $U/hr',
-    avgOutcome: '+3.2x LP Fee APR efficiency',
-    badgeLabel: 'HIGH YIELD LP',
-    iconType: 'chart',
+    benefit: '+3.2x LP Fee APR share',
+    icon: '📈',
   },
   {
     id: 'monitoring',
     name: 'WATCHTOWER OBSERVATORY',
     subtitle: 'Mempool & Whale Sentinel',
-    purpose: 'Scans the BSC mempool 24/7 and delivers instant alerts upon detecting sandwich attacks or whale dumps',
+    purpose: 'Scans the BSC mempool 24/7 to deliver instant alerts upon detecting sandwich attacks or whale dumps.',
     accent: '#38BDF8',
-    accentBg: '#E0F2FE',
+    accentBg: '#F0F9FF',
     issueCode: 'SEC.01',
-    whenToUse: 'When holding major token balances and seeking protection against MEV frontrunning and sudden drains',
-    costExplanation: '~0.15 $U/hr (Lowest cost autonomous 24/7 radar for complete wallet awareness)',
-    keyFeatures: [
-      'Pre-execution mempool radar scanning pending transactions',
-      'Detects sudden whale dumping and liquidity withdrawal vectors',
-      'Instant dispatch to Telegram and webhook endpoints',
-    ],
     startingRate: '0.15 $U/hr',
-    avgOutcome: 'P99 detection latency < 350ms',
-    badgeLabel: 'LOWEST COST',
-    iconType: 'eye',
+    benefit: 'P99 alert latency < 350ms',
+    icon: '👁️',
   },
 ];
 
@@ -135,9 +95,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   onHireAgent,
   network,
 }) => {
-  // Modes & State
-  const [viewMode, setViewMode] = useState<'beginner' | 'pro'>('beginner');
-  const [selectedCategories, setSelectedCategories] = useState<CareerCategory[]>([]);
+  // Filters & State
+  const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all'>('all');
   const [activeOnly, setActiveOnly] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForCompare, setSelectedForCompare] = useState<AgentData[]>([]);
@@ -148,10 +107,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
   // Filter handlers
   const handleStallClick = (cat: CareerCategory) => {
-    if (selectedCategories.length === 1 && selectedCategories[0] === cat) {
-      setSelectedCategories([]);
+    if (selectedCategory === cat) {
+      setSelectedCategory('all');
     } else {
-      setSelectedCategories([cat]);
+      setSelectedCategory(cat);
     }
   };
 
@@ -167,16 +126,16 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     }
   };
 
-  // Filter agents
+  // Filter agents for the right panel
   const filteredAgents = agents.filter((agent) => {
     if (activeOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
       return false;
     }
     const agentCategory = (agent.labels?.[0] || 'monitoring') as CareerCategory;
-    if (selectedCategories.length > 0 && !selectedCategories.includes(agentCategory)) {
+    if (selectedCategory !== 'all' && agentCategory !== selectedCategory) {
       return false;
     }
-    if (searchQuery) {
+    if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = agent.name?.toLowerCase().includes(q);
       const matchDesc = agent.description?.toLowerCase().includes(q);
@@ -186,55 +145,33 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     return true;
   });
 
-  // Recommended agent for emergency shortfall (Vulcan)
+  // Emergency agent for loan shortfall
   const emergencyAgent =
     agents.find((a) => a.labels?.includes('health_factor') || a.agentId === 'vulcan') || agents[0];
 
   return (
     <div className="w-full h-[calc(100vh-120px)] min-h-[560px] flex flex-col bg-[#F4F0EA] select-none overflow-hidden">
-      {/* Top Banner: Mode Switcher + Safety Guarantee Bar */}
-      <div className="bg-[#FFFFFF] border-b-2 border-[#121212] px-3 sm:px-4 py-2 z-20 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-xs">
-        {/* Left: View Mode Toggle & Welcome */}
-        <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
-          <div className="flex items-center space-x-1.5">
-            <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-2 py-0.5 font-black font-mono-tech">
-              BAZAAR MKT.01
-            </span>
-            <span className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-              AUTONOMOUS AGENT BAZAAR
-            </span>
-          </div>
-
-          {/* Mode Switcher */}
-          <div className="flex items-center bg-[#FAF7F0] border-2 border-[#121212] p-0.5 ml-2">
-            <button
-              onClick={() => setViewMode('beginner')}
-              className={`px-2.5 py-0.5 text-[10px] font-mono-tech font-black transition-colors ${
-                viewMode === 'beginner'
-                  ? 'bg-[#00F59B] text-[#121212] shadow-xs'
-                  : 'text-[#6A6A6A] hover:text-[#121212]'
-              }`}
-            >
-              🌱 BEGINNER MODE
-            </button>
-            <button
-              onClick={() => setViewMode('pro')}
-              className={`px-2.5 py-0.5 text-[10px] font-mono-tech font-bold transition-colors ${
-                viewMode === 'pro'
-                  ? 'bg-[#121212] text-white shadow-xs'
-                  : 'text-[#6A6A6A] hover:text-[#121212]'
-              }`}
-            >
-              ⚡ PRO SPECS
-            </button>
-          </div>
+      {/* Top Bar: Title & Guide Button */}
+      <div className="bg-[#FFFFFF] border-b-2 border-[#121212] px-3 sm:px-4 py-2 shrink-0 flex items-center justify-between shadow-xs">
+        <div className="flex items-center space-x-2">
+          <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-2 py-0.5 font-black font-mono-tech">
+            MKT.01
+          </span>
+          <span className="neo-badge bg-[#00F59B] text-[#121212] text-[9px] px-2 py-0.5 font-black font-mono-tech">
+            ∞ UNLIMITED HIRES
+          </span>
+          <span className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
+            AUTONOMOUS AGENT BAZAAR
+          </span>
+          <span className="hidden sm:inline font-mono-tech text-[10px] text-[#6A6A6A]">
+            // Verified ERC-8004 Agents with Unlimited Concurrent Escrows
+          </span>
         </div>
 
-        {/* Right: Quick Safety Reassurance & Glossary button */}
         <div className="flex items-center space-x-2 text-[10px] font-mono-tech">
-          <div className="hidden md:flex items-center space-x-2 text-[#059669] bg-[#FAF7F0] px-2 py-1 border border-[#121212]">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="font-bold">SMART ESCROW: FUNDS RELEASE ONLY UPON VERIFIED PROOF</span>
+          <div className="hidden md:flex items-center space-x-1.5 text-[#059669] bg-[#FAF7F0] px-2 py-1 border border-[#121212]">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="font-bold">100% SMART ESCROW PROTECTED</span>
           </div>
 
           <button
@@ -242,174 +179,60 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] px-2 py-1 text-[10px] font-black flex items-center space-x-1 border border-[#121212]"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>{showGlossary ? 'HIDE GLOSSARY' : 'NEWCOMER GLOSSARY'}</span>
+            <span>{showGlossary ? 'HIDE GUIDE' : 'QUICK GUIDE'}</span>
           </button>
         </div>
       </div>
 
-      {/* Mini Glossary Accordion for Beginners */}
+      {/* Collapsible Newcomer Guide */}
       {showGlossary && (
-        <div className="bg-[#FFFFFF] border-b-2 border-[#121212] p-3 shrink-0 z-10 transition-all">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-display font-black text-xs text-[#121212] uppercase tracking-tight flex items-center space-x-1.5">
-                <HelpCircle className="w-3.5 h-3.5 text-[#00F59B]" />
-                <span>NEWCOMER PRIMER: KEY CONCEPTS MADE SIMPLE</span>
-              </span>
-              <button
-                onClick={() => setShowGlossary(false)}
-                className="text-xs font-mono-tech font-bold text-[#6A6A6A] hover:text-[#121212]"
-              >
-                ✕ CLOSE
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 font-mono-tech text-[10px]">
+        <div className="bg-[#FFFFFF] border-b-2 border-[#121212] p-3 shrink-0 transition-all z-20">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[10px] font-mono-tech flex-1">
               <div className="bg-[#FAF7F0] p-2 border border-[#121212]">
-                <strong className="text-[#121212] block mb-0.5">💰 WHAT IS $U?</strong>
-                <p className="text-[#555] font-sans text-[11px] leading-snug">
-                  The ecosystem stablecoin pegged to $1.00 USD. Used for transparent hourly agent compensation without price volatility.
-                </p>
+                <strong className="text-[#121212] block mb-0.5">🔒 SAFE ESCROW</strong>
+                <span className="text-[#555] font-sans text-[11px]">
+                  Funds stay locked in smart contract. Released only upon verified cryptographic proof.
+                </span>
               </div>
-
               <div className="bg-[#FAF7F0] p-2 border border-[#121212]">
-                <strong className="text-[#121212] block mb-0.5">🔒 WHAT IS ESCROW?</strong>
-                <p className="text-[#555] font-sans text-[11px] leading-snug">
-                  An on-chain smart contract vault holding your deposit safely. Agents only receive payment after submitting valid proof of work.
-                </p>
+                <strong className="text-[#121212] block mb-0.5">🔑 ZERO PRIVATE KEYS</strong>
+                <span className="text-[#555] font-sans text-[11px]">
+                  Private keys never leave your custody. Agents execute only approved on-chain directives.
+                </span>
               </div>
-
               <div className="bg-[#FAF7F0] p-2 border border-[#121212]">
-                <strong className="text-[#121212] block mb-0.5">🛡️ WHAT IS HEALTH FACTOR (HF)?</strong>
-                <p className="text-[#555] font-sans text-[11px] leading-snug">
-                  Safety score of your loan on Venus. When HF drops below 1.15, your collateral faces immediate liquidation and hefty fines.
-                </p>
+                <strong className="text-[#121212] block mb-0.5">💰 PREDICTABLE $U</strong>
+                <span className="text-[#555] font-sans text-[11px]">
+                  Fixed hourly pricing pegged to $1 USD. Withdraw unspent deposit anytime.
+                </span>
               </div>
-
               <div className="bg-[#FAF7F0] p-2 border border-[#121212]">
-                <strong className="text-[#121212] block mb-0.5">🔑 DO I SHARE PRIVATE KEYS?</strong>
-                <p className="text-[#555] font-sans text-[11px] leading-snug">
-                  Never! Zero key delegation. Agents run autonomously and interact strictly via verified permissioned smart contracts.
-                </p>
+                <strong className="text-[#121212] block mb-0.5">🧪 RISK-FREE DEMO</strong>
+                <span className="text-[#555] font-sans text-[11px]">
+                  Click Hire on any agent to test the entire escrow workflow without real tokens.
+                </span>
               </div>
             </div>
+            <button
+              onClick={() => setShowGlossary(false)}
+              className="text-xs font-mono-tech font-bold text-[#6A6A6A] hover:text-[#121212] ml-2 self-end sm:self-center"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main 2-Column Split: Left Stalls / Right Search & Directory */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* LEFT 54%: 4 Stalls or Matchmaker for Beginners */}
-        <div className="w-full lg:w-[54%] h-full border-r-[2.5px] border-[#121212] relative flex flex-col p-3 sm:p-4 overflow-y-auto bg-[#F4F0EA]">
-          {/* Interactive Matchmaker: "What would you like to achieve today?" */}
-          <div className="bg-[#FFFFFF] border-2 border-[#121212] neo-shadow-sm p-3 mb-3 shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-1.5">
-                <Sparkles className="w-4 h-4 text-[#FFE500] fill-[#121212]" />
-                <h3 className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-                  {viewMode === 'beginner'
-                    ? 'WHAT WOULD YOU LIKE TO ACCOMPLISH TODAY?'
-                    : 'TASK CLASSIFIER & STALL SELECTOR'}
-                </h3>
-              </div>
-              <span className="font-mono-tech text-[9px] text-[#6A6A6A] font-bold">
-                SELECT A GOAL TO AUTO-FILTER
-              </span>
-            </div>
-
-            {/* 4 Clickable Purpose Tiles */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono-tech text-[10px]">
-              <button
-                onClick={() => handleStallClick('health_factor')}
-                className={`p-2 border-2 text-left transition-all ${
-                  selectedCategories.includes('health_factor')
-                    ? 'bg-[#FF4365] text-white border-[#121212] neo-shadow ring-1 ring-[#121212]'
-                    : 'bg-[#FAF7F0] text-[#121212] border-[#121212]/40 hover:border-[#121212]'
-                }`}
-              >
-                <div className="font-black flex items-center space-x-1">
-                  <span>🛡️</span>
-                  <span className="truncate">PROTECT LOANS</span>
-                </div>
-                <p
-                  className={`font-sans text-[10px] mt-0.5 line-clamp-2 ${
-                    selectedCategories.includes('health_factor') ? 'text-white/90' : 'text-[#6A6A6A]'
-                  }`}
-                >
-                  Prevent Venus liquidations
-                </p>
-              </button>
-
-              <button
-                onClick={() => handleStallClick('yield')}
-                className={`p-2 border-2 text-left transition-all ${
-                  selectedCategories.includes('yield')
-                    ? 'bg-[#00F59B] text-[#121212] border-[#121212] neo-shadow ring-1 ring-[#121212]'
-                    : 'bg-[#FAF7F0] text-[#121212] border-[#121212]/40 hover:border-[#121212]'
-                }`}
-              >
-                <div className="font-black flex items-center space-x-1">
-                  <span>💰</span>
-                  <span className="truncate">HARVEST YIELD</span>
-                </div>
-                <p
-                  className={`font-sans text-[10px] mt-0.5 line-clamp-2 ${
-                    selectedCategories.includes('yield') ? 'text-[#121212]/90' : 'text-[#6A6A6A]'
-                  }`}
-                >
-                  Auto-compound ~14.8% APY
-                </p>
-              </button>
-
-              <button
-                onClick={() => handleStallClick('grid')}
-                className={`p-2 border-2 text-left transition-all ${
-                  selectedCategories.includes('grid')
-                    ? 'bg-[#FF7828] text-white border-[#121212] neo-shadow ring-1 ring-[#121212]'
-                    : 'bg-[#FAF7F0] text-[#121212] border-[#121212]/40 hover:border-[#121212]'
-                }`}
-              >
-                <div className="font-black flex items-center space-x-1">
-                  <span>📈</span>
-                  <span className="truncate">OPTIMIZE LP FEES</span>
-                </div>
-                <p
-                  className={`font-sans text-[10px] mt-0.5 line-clamp-2 ${
-                    selectedCategories.includes('grid') ? 'text-white/90' : 'text-[#6A6A6A]'
-                  }`}
-                >
-                  Auto-rebalance Pancake V3
-                </p>
-              </button>
-
-              <button
-                onClick={() => handleStallClick('monitoring')}
-                className={`p-2 border-2 text-left transition-all ${
-                  selectedCategories.includes('monitoring')
-                    ? 'bg-[#38BDF8] text-[#121212] border-[#121212] neo-shadow ring-1 ring-[#121212]'
-                    : 'bg-[#FAF7F0] text-[#121212] border-[#121212]/40 hover:border-[#121212]'
-                }`}
-              >
-                <div className="font-black flex items-center space-x-1">
-                  <span>👁️</span>
-                  <span className="truncate">24/7 WALLET RADAR</span>
-                </div>
-                <p
-                  className={`font-sans text-[10px] mt-0.5 line-clamp-2 ${
-                    selectedCategories.includes('monitoring') ? 'text-[#121212]/90' : 'text-[#6A6A6A]'
-                  }`}
-                >
-                  Mempool & whale alert sentinel
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {/* Urgent Emergency Alert Banner for Low Health Factor */}
+        {/* LEFT 52%: Clean 4 Stalls & Emergency Shield */}
+        <div className="w-full lg:w-[52%] h-full border-r-[2.5px] border-[#121212] p-3 sm:p-4 overflow-y-auto bg-[#F4F0EA] flex flex-col">
+          {/* Urgent Shortfall Alert */}
           {walletContext.hasEmergencyShortfall && (
             <div className="bg-[#FFF1F2] border-2 border-[#FF4365] neo-shadow-sm p-3 mb-3 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
               <div className="flex items-start space-x-2.5">
-                <div className="w-8 h-8 rounded-none bg-[#FF4365] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 bg-[#FF4365] border-2 border-[#121212] flex items-center justify-center shrink-0">
                   <ShieldAlert className="w-4 h-4 text-white animate-pulse" />
                 </div>
                 <div>
@@ -422,29 +245,38 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     </span>
                   </div>
                   <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
-                    Your Venus loan collateral is dangerously close to liquidation penalty seizure (<strong>8% - 15% loss</strong>). We strongly advise hiring <strong>Vulcan Guardian</strong> immediately to inject flash collateral and safeguard your position.
+                    Your Venus collateral is near liquidation penalty seizure (<strong>8% - 15% loss</strong>). Deploy <strong>Vulcan Guardian</strong> immediately to safeguard your loan.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
-                <button
-                  onClick={() => setAgentToHire(emergencyAgent)}
-                  className="neo-btn bg-[#FF4365] text-white font-display font-black text-xs px-3.5 py-1.5 flex items-center space-x-1.5 hover:bg-[#121212]"
-                >
-                  <Zap className="w-3.5 h-3.5 fill-white" />
-                  <span>DEPLOY SHIELD NOW</span>
-                </button>
-              </div>
+              <button
+                onClick={() => setAgentToHire(emergencyAgent)}
+                className="neo-btn bg-[#FF4365] text-white font-display font-black text-xs px-3.5 py-1.5 flex items-center space-x-1.5 hover:bg-[#121212] shrink-0 self-end sm:self-center"
+              >
+                <Zap className="w-3.5 h-3.5 fill-white" />
+                <span>DEPLOY SHIELD NOW</span>
+              </button>
             </div>
           )}
 
-          {/* 4 Stalls Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2">
+          {/* Stalls Header */}
+          <div className="flex items-center justify-between mb-2 shrink-0">
+            <div className="flex items-center space-x-1.5">
+              <span className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
+                SELECT A SPECIALIZED SERVICE STALL
+              </span>
+            </div>
+            <span className="font-mono-tech text-[9px] text-[#6A6A6A]">
+              Click a stall to filter agents
+            </span>
+          </div>
+
+          {/* 4 Clean Stalls Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2 flex-1">
             {STALLS_CONFIG.map((stall) => {
-              const isSelected = selectedCategories.includes(stall.id);
-              const isEmergencyRecommended =
-                walletContext.hasEmergencyShortfall && stall.id === 'health_factor';
+              const isSelected = selectedCategory === stall.id;
+              const isEmergency = walletContext.hasEmergencyShortfall && stall.id === 'health_factor';
               const stallAgents = agents.filter((a) => a.labels?.includes(stall.id));
               const topAgent = stallAgents[0];
 
@@ -454,52 +286,43 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   onClick={() => handleStallClick(stall.id)}
                   className={`neo-card p-3 sm:p-3.5 cursor-pointer flex flex-col justify-between relative transition-all duration-150 ${
                     isSelected
-                      ? 'translate-x-[-2px] translate-y-[-2px] neo-shadow-lg ring-2 ring-[#121212]'
-                      : 'hover:translate-x-[-1px] hover:translate-y-[-1px] hover:neo-shadow'
-                  } ${isEmergencyRecommended ? 'border-[#FF4365] ring-2 ring-[#FF4365] bg-[#FFFBFB]' : ''}`}
+                      ? 'translate-x-[-2px] translate-y-[-2px] neo-shadow ring-2 ring-[#121212]'
+                      : 'hover:translate-x-[-1px] hover:translate-y-[-1px] hover:neo-shadow-sm'
+                  } ${isEmergency ? 'border-[#FF4365] ring-2 ring-[#FF4365]' : ''}`}
                   style={{
-                    borderTop: `6px solid ${stall.accent}`,
+                    borderTop: `5px solid ${stall.accent}`,
                     backgroundColor: isSelected ? '#FFFFFF' : '#FAF7F0',
                   }}
                 >
-                  {/* Top Stall Bar */}
                   <div>
+                    {/* Header line */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center space-x-1.5">
-                        <span
-                          className="neo-badge text-[9px] px-1.5 py-0.2 font-mono-tech font-black"
-                          style={{ backgroundColor: stall.accent, color: '#121212' }}
-                        >
-                          {stall.issueCode}
-                        </span>
-                        {stall.badgeLabel && (
-                          <span className="neo-badge bg-[#FFFFFF] border border-[#121212] text-[8px] px-1.5 py-0.2 font-mono-tech font-bold text-[#121212]">
-                            {stall.badgeLabel}
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="font-mono-tech text-[10px] text-[#6A6A6A] font-bold">
-                        {stallAgents.length} VERIFIED AGENT
+                      <span
+                        className="neo-badge text-[8.5px] px-1.5 py-0.2 font-mono-tech font-black"
+                        style={{ backgroundColor: stall.accent, color: '#121212' }}
+                      >
+                        {stall.issueCode}
+                      </span>
+                      <span className="font-mono-tech text-[9px] text-[#6A6A6A] font-bold">
+                        {stallAgents.length} AGENT AVAILABLE
                       </span>
                     </div>
 
-                    {/* Title & Subtitle */}
-                    <div className="flex items-start justify-between">
+                    {/* Title + Mascot */}
+                    <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h3 className="font-display font-extrabold text-sm sm:text-base text-[#121212] leading-tight">
+                        <h3 className="font-display font-black text-sm text-[#121212] leading-tight">
                           {stall.name}
                         </h3>
                         <p
-                          className="font-mono-tech text-[11px] font-bold mt-0.5"
+                          className="font-mono-tech text-[10px] font-bold mt-0.5"
                           style={{ color: stall.accent }}
                         >
                           {stall.subtitle}
                         </p>
                       </div>
 
-                      {/* Pixel Mascot */}
-                      <div className="w-11 h-11 bg-[#FFFFFF] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center shrink-0 ml-2">
+                      <div className="w-10 h-10 bg-[#FFFFFF] border-2 border-[#121212] flex items-center justify-center shrink-0">
                         <img
                           src={getPixelSprite(stall.id)}
                           alt={stall.name}
@@ -507,61 +330,40 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).src = getPixelSprite(stall.id, 'idle');
                           }}
-                          className="w-9 h-9 object-contain"
+                          className="w-8 h-8 object-contain"
                         />
                       </div>
                     </div>
 
-                    {/* Clear Problem Statement */}
-                    <p className="font-sans text-xs text-[#3A3A3A] mt-2 font-medium leading-snug">
+                    {/* Purpose */}
+                    <p className="font-sans text-xs text-[#4A4A4A] mt-2 leading-relaxed">
                       {stall.purpose}
                     </p>
 
-                    {/* When to use */}
-                    <div className="mt-2 bg-[#FFFFFF] border border-[#121212] p-2">
-                      <span className="font-mono-tech text-[9px] font-black text-[#121212] uppercase block">
-                        WHEN TO USE:
-                      </span>
-                      <p className="font-sans text-[11px] text-[#555] leading-snug">
-                        {stall.whenToUse}
-                      </p>
-                    </div>
-
-                    {/* Key Capabilities Checklist */}
-                    <div className="mt-2 space-y-1">
-                      {stall.keyFeatures.map((feat, idx) => (
-                        <div key={idx} className="flex items-center space-x-1.5 text-[10px] font-mono-tech text-[#3A3A3A]">
-                          <Check className="w-3 h-3 text-[#00F59B] shrink-0 stroke-[3]" />
-                          <span className="truncate">{feat}</span>
-                        </div>
-                      ))}
+                    {/* Key Benefit */}
+                    <div className="mt-2 inline-flex items-center space-x-1 text-[10px] font-mono-tech font-black text-[#121212] bg-[#FFE500] px-2 py-0.5 border border-[#121212]">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                      <span>{stall.benefit}</span>
                     </div>
                   </div>
 
-                  {/* Bottom Metric Strip & Action Buttons */}
-                  <div className="mt-3 pt-2 border-t-2 border-[#121212]">
-                    <div className="flex items-center justify-between mb-2 font-mono-tech text-[10px]">
-                      <span className="text-[#6A6A6A]">
-                        RATE: <strong className="text-[#121212] font-black">{stall.startingRate}</strong>
-                      </span>
-                      <span className="text-[#059669] font-bold text-right truncate max-w-[140px]">
-                        {stall.avgOutcome}
-                      </span>
-                    </div>
+                  {/* Stall Actions */}
+                  <div className="mt-3 pt-2 border-t-2 border-[#121212] flex items-center justify-between gap-2">
+                    <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
+                      FROM: <strong className="text-[#121212] font-black">{stall.startingRate}</strong>
+                    </span>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStallClick(stall.id);
                         }}
-                        className={`flex-1 neo-btn font-mono-tech text-[10px] font-black py-1.5 transition-colors ${
-                          isSelected
-                            ? 'bg-[#121212] text-white'
-                            : 'bg-[#FFE500] text-[#121212] hover:bg-[#121212] hover:text-white'
+                        className={`neo-btn text-[9px] font-mono-tech font-black px-2 py-1 ${
+                          isSelected ? 'bg-[#121212] text-white' : 'bg-[#FAF7F0] text-[#121212]'
                         }`}
                       >
-                        {isSelected ? '✓ ACTIVE FILTER' : 'FILTER STALL'}
+                        {isSelected ? '✓ FILTERED' : 'VIEW AGENTS'}
                       </button>
 
                       {topAgent && (
@@ -570,11 +372,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             e.stopPropagation();
                             setAgentToHire(topAgent);
                           }}
-                          className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-[10px] px-2.5 py-1.5 flex items-center space-x-1 hover:bg-[#FFE500]"
-                          title={`Quick hire ${topAgent.name}`}
+                          className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-[9px] px-2.5 py-1 flex items-center space-x-1 hover:bg-[#FFE500]"
                         >
                           <Zap className="w-3 h-3 fill-[#121212]" />
-                          <span>QUICK HIRE</span>
+                          <span>HIRE</span>
                         </button>
                       )}
                     </div>
@@ -583,60 +384,26 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               );
             })}
           </div>
-
-          {/* Compare Floating Banner */}
-          {selectedForCompare.length > 0 && (
-            <div className="bg-[#FFE500] border-2 border-[#121212] neo-shadow p-2.5 flex items-center justify-between z-20 shrink-0 mt-auto">
-              <div className="flex items-center space-x-2">
-                <Scale className="w-4 h-4 text-[#121212]" />
-                <span className="font-display font-black text-xs text-[#121212] uppercase tracking-tight">
-                  COMPARE AGENTS ({selectedForCompare.length}/2):
-                </span>
-                <span className="font-mono-tech text-xs text-[#121212] font-bold">
-                  {selectedForCompare.map((a) => a.name.split(' ')[0]).join(' VS ')}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  disabled={selectedForCompare.length < 2}
-                  onClick={() => setShowCompareModal(true)}
-                  className={`neo-btn font-mono-tech text-[10px] font-bold px-3 py-1 ${
-                    selectedForCompare.length === 2
-                      ? 'bg-[#121212] text-white'
-                      : 'bg-[#FAF7F0] text-[#8A8A8A] opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  VIEW COMPARISON
-                </button>
-                <button
-                  onClick={() => setSelectedForCompare([])}
-                  className="font-mono-tech text-[10px] text-[#121212] underline hover:text-[#FF4365] px-1 font-bold"
-                >
-                  CLEAR
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* RIGHT 46%: Beginner-Optimized Agent Directory & Spec Inspector */}
-        <div className="w-full lg:w-[46%] h-full bg-[#FFFFFF] flex flex-col p-3 sm:p-4 overflow-hidden">
-          {/* Directory Header & Probing Badge */}
-          <div className="border-b-2 border-[#121212] pb-3 mb-3 shrink-0">
+        {/* RIGHT 48%: Dedicated Search & Agent Directory (As Originally Requested) */}
+        <div className="w-full lg:w-[48%] h-full bg-[#FFFFFF] flex flex-col p-3 sm:p-4 overflow-hidden">
+          {/* Directory Header + Active Probed Status */}
+          <div className="border-b-2 border-[#121212] pb-2.5 mb-2.5 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <SlidersHorizontal className="w-4 h-4 text-[#121212]" />
                 <div>
-                  <span className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight block">
+                  <h3 className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight block leading-none">
                     VERIFIED AGENT DIRECTORY
-                  </span>
-                  <span className="font-mono-tech text-[9px] text-[#6A6A6A]">
+                  </h3>
+                  <span className="font-mono-tech text-[9px] text-[#6A6A6A] mt-0.5 block">
                     Showing {filteredAgents.length} of {agents.length} on-chain verified agents
                   </span>
                 </div>
               </div>
 
-              {/* Active Probed Checkbox with Explanation */}
+              {/* 5s Probed Live Checkbox */}
               <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
                 <input
                   type="checkbox"
@@ -648,13 +415,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </label>
             </div>
 
-            {/* Quick Filter Buttons */}
-            <div className="mb-2 bg-[#FAF7F0] p-1.5 border border-[#121212] flex items-center space-x-1 overflow-x-auto text-[10px] font-mono-tech">
-              <span className="text-[#8A8A8A] font-bold px-1 shrink-0">GOAL:</span>
+            {/* Quick Goal Tabs */}
+            <div className="mb-2 bg-[#FAF7F0] p-1 border border-[#121212] flex items-center space-x-1 overflow-x-auto text-[10px] font-mono-tech scrollbar-none">
+              <span className="text-[#8A8A8A] font-bold px-1 shrink-0 text-[9px]">GOAL:</span>
               <button
-                onClick={() => setSelectedCategories([])}
+                onClick={() => setSelectedCategory('all')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategories.length === 0
+                  selectedCategory === 'all'
                     ? 'bg-[#121212] text-white border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FFE500]'
                 }`}
@@ -664,7 +431,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <button
                 onClick={() => handleStallClick('health_factor')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategories.includes('health_factor')
+                  selectedCategory === 'health_factor'
                     ? 'bg-[#FF4365] text-white border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF4365]/20'
                 }`}
@@ -674,7 +441,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <button
                 onClick={() => handleStallClick('yield')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategories.includes('yield')
+                  selectedCategory === 'yield'
                     ? 'bg-[#00F59B] text-[#121212] border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#00F59B]/20'
                 }`}
@@ -684,7 +451,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <button
                 onClick={() => handleStallClick('grid')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategories.includes('grid')
+                  selectedCategory === 'grid'
                     ? 'bg-[#FF7828] text-white border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF7828]/20'
                 }`}
@@ -694,7 +461,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <button
                 onClick={() => handleStallClick('monitoring')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategories.includes('monitoring')
+                  selectedCategory === 'monitoring'
                     ? 'bg-[#38BDF8] text-[#121212] border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#38BDF8]/20'
                 }`}
@@ -703,7 +470,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </button>
             </div>
 
-            {/* Search Input Box */}
+            {/* Prominent Search Input Box (Right side search) */}
             <div className="flex items-center bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm px-2.5 py-1.5">
               <Search className="w-4 h-4 text-[#8A8A8A] mr-2 shrink-0" />
               <input
@@ -724,26 +491,26 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             </div>
           </div>
 
-          {/* Scrollable Agent Card List */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          {/* Scrollable Agent Card List on Right */}
+          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
             {filteredAgents.length === 0 ? (
-              <div className="text-center py-12 neo-card bg-[#FAF7F0] p-6">
-                <Compass className="w-8 h-8 mx-auto text-[#8A8A8A] mb-2 animate-bounce" />
+              <div className="text-center py-10 neo-card bg-[#FAF7F0] p-5 my-auto">
+                <div className="text-2xl mb-1">🔍</div>
                 <div className="font-display font-black text-xs text-[#121212] uppercase">
-                  NO AGENTS MATCHING YOUR FILTER
+                  NO AGENTS MATCHING "{searchQuery}"
                 </div>
                 <p className="font-mono-tech text-[10px] text-[#6A6A6A] mt-1">
-                  Try clearing the category filter or uncheck active probed requirement.
+                  Try clearing the search query or resetting filters.
                 </p>
                 <button
                   onClick={() => {
-                    setSelectedCategories([]);
+                    setSelectedCategory('all');
                     setSearchQuery('');
                     setActiveOnly(false);
                   }}
                   className="mt-3 neo-btn bg-[#FFE500] text-[#121212] font-mono-tech text-[10px] font-bold px-3 py-1"
                 >
-                  RESET ALL FILTERS
+                  RESET FILTERS
                 </button>
               </div>
             ) : (
@@ -766,7 +533,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       isRecommended ? 'border-2 border-[#FF4365] bg-[#FFFBFB]' : 'bg-[#FFFFFF]'
                     } hover:translate-x-[-1px] hover:translate-y-[-1px]`}
                   >
-                    {/* Recommended Badge for Newcomer */}
+                    {/* Recommended Alert Badge */}
                     {isRecommended && (
                       <div className="bg-[#FF4365] text-white px-2 py-0.5 text-[8px] font-mono-tech font-black flex items-center justify-between mb-2">
                         <span className="flex items-center space-x-1">
@@ -777,11 +544,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       </div>
                     )}
 
-                    {/* Top Card Info */}
                     <div>
+                      {/* Top Row: Mascot, Title, Rates */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center space-x-2.5">
-                          <div className="w-12 h-12 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center shrink-0">
+                          <div className="w-11 h-11 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center shrink-0">
                             <img
                               src={spriteSrc}
                               alt={agent.name}
@@ -802,20 +569,19 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                                 className={`w-2 h-2 rounded-full border border-[#121212] ${
                                   agent.hireable ? 'bg-[#00F59B]' : 'bg-[#A0A0A0]'
                                 }`}
-                                title={agent.hireable ? 'Online & Available' : 'Standby'}
                               />
                               <span className="font-mono-tech text-[9px] text-[#059669] font-bold">
                                 ONLINE
                               </span>
                             </div>
 
-                            <h4 className="font-display font-extrabold text-xs sm:text-sm text-[#121212] leading-snug mt-0.5">
+                            <h4 className="font-display font-black text-xs sm:text-sm text-[#121212] leading-snug mt-0.5">
                               {agent.name}
                             </h4>
                           </div>
                         </div>
 
-                        {/* Pricing Breakdown */}
+                        {/* Pricing */}
                         <div className="text-right shrink-0 bg-[#FAF7F0] p-1.5 border border-[#121212]">
                           <div className="font-mono-tech text-xs text-[#121212] font-black">
                             {hourlyCost} $U/hr
@@ -829,13 +595,13 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Agent Description */}
+                      {/* Description */}
                       <p className="font-sans text-xs text-[#4A4A4A] mt-2 leading-relaxed bg-[#FAF7F0] p-2 border border-[#121212]/30">
                         "{agent.description}"
                       </p>
 
-                      {/* Guarantees */}
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 font-mono-tech text-[9px] text-[#555]">
+                      {/* Escrow & Security Badges */}
+                      <div className="mt-1.5 flex items-center space-x-3 font-mono-tech text-[9px] text-[#555]">
                         <div className="flex items-center space-x-1">
                           <CheckCircle2 className="w-3 h-3 text-[#059669]" />
                           <span>ERC-8183 Escrow Protected</span>
@@ -847,8 +613,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Card Controls */}
-                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t-2 border-[#121212]">
+                    {/* Bottom Buttons */}
+                    <div className="flex items-center justify-between mt-2.5 pt-2 border-t-2 border-[#121212]">
                       <button
                         onClick={() => toggleCompareSelect(agent)}
                         className={`neo-badge text-[9px] px-2 py-0.5 ${
@@ -871,7 +637,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                           onClick={() => setAgentToHire(agent)}
                           className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-xs px-3.5 py-1 flex items-center space-x-1 hover:bg-[#FFE500]"
                         >
-                          <Zap className="w-3 h-3 fill-[#121212]" />
+                          <Zap className="w-3.5 h-3.5 fill-[#121212]" />
                           <span>HIRE AGENT</span>
                         </button>
                       </div>
@@ -883,6 +649,40 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Compare Floating Banner */}
+      {selectedForCompare.length > 0 && (
+        <div className="bg-[#FFE500] border-t-2 border-[#121212] p-2.5 flex items-center justify-between z-30 shrink-0">
+          <div className="flex items-center space-x-2">
+            <Scale className="w-4 h-4 text-[#121212]" />
+            <span className="font-display font-black text-xs text-[#121212] uppercase tracking-tight">
+              COMPARE AGENTS ({selectedForCompare.length}/2):
+            </span>
+            <span className="font-mono-tech text-xs text-[#121212] font-bold">
+              {selectedForCompare.map((a) => a.name.split(' ')[0]).join(' VS ')}
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              disabled={selectedForCompare.length < 2}
+              onClick={() => setShowCompareModal(true)}
+              className={`neo-btn font-mono-tech text-xs font-bold px-3 py-1 ${
+                selectedForCompare.length === 2
+                  ? 'bg-[#121212] text-white'
+                  : 'bg-[#FAF7F0] text-[#8A8A8A] opacity-60 cursor-not-allowed'
+              }`}
+            >
+              VIEW COMPARISON
+            </button>
+            <button
+              onClick={() => setSelectedForCompare([])}
+              className="font-mono-tech text-xs text-[#121212] underline hover:text-[#FF4365] px-1 font-bold"
+            >
+              CLEAR
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Compare Modal */}
       {showCompareModal && selectedForCompare.length === 2 && (
@@ -911,7 +711,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           <div className="neo-card bg-[#FFFFFF] w-full max-w-lg p-5 neo-shadow-lg relative">
             <div className="flex items-center justify-between border-b-2 border-[#121212] pb-3 mb-4">
               <div className="flex items-center space-x-2.5">
-                <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-2 py-0.5">
+                <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-2 py-0.5 font-bold">
                   SPEC SHEET
                 </span>
                 <h3 className="font-display font-black text-sm text-[#121212]">
@@ -957,7 +757,6 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </div>
               </div>
 
-              {/* Beginner Security Guarantee Notice */}
               <div className="bg-[#D1FAE5] border border-[#059669] p-2.5 text-[11px] text-[#065F46] font-sans leading-relaxed">
                 <strong>🔒 Safe Escrow Guarantee:</strong> All escrowed deposits are held in a decentralized smart contract on BNB Chain. The agent can only claim payment after executing the assigned task and presenting verified cryptographic proof. You may terminate and refund any remaining balance at any time!
               </div>
