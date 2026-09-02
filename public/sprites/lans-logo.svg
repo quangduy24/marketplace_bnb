@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="144" height="144" shape-rendering="crispEdges">
+  <!-- ==================== 16-BIT ROYAL LANS CREST ==================== -->
+
+  <!-- Top Crown Battlements (Golden Tier 1) -->
+  <rect x="7" y="1" width="4" height="3" fill="#ffe769" />
+  <rect x="8" y="2" width="2" height="1" fill="#ffffff" />
+  <rect x="7" y="4" width="4" height="1" fill="#d48c08" />
+
+  <rect x="15" y="0" width="6" height="4" fill="#ffe769" />
+  <rect x="17" y="0" width="2" height="2" fill="#ffffff" />
+  <rect x="16" y="2" width="4" height="1" fill="#ffc825" />
+  <rect x="15" y="3" width="6" height="1" fill="#d48c08" />
+
+  <rect x="25" y="1" width="4" height="3" fill="#ffe769" />
+  <rect x="26" y="2" width="2" height="1" fill="#ffffff" />
+  <rect x="25" y="4" width="4" height="1" fill="#d48c08" />
+
+  <!-- Crown Arch Base & Jewels -->
+  <rect x="6" y="4" width="24" height="2" fill="#ffc825" />
+  <rect x="6" y="5" width="24" height="1" fill="#d48c08" />
+  <rect x="9" y="4" width="2" height="1" fill="#e43b44" />
+  <rect x="17" y="4" width="2" height="1" fill="#3cd2c4" />
+  <rect x="25" y="4" width="2" height="1" fill="#e43b44" />
+
+  <!-- Shield Outer Dark Contour (Pixel Border) -->
+  <rect x="4" y="6" width="28" height="18" fill="#120e1f" />
+  <rect x="5" y="24" width="26" height="4" fill="#120e1f" />
+  <rect x="7" y="28" width="22" height="3" fill="#120e1f" />
+  <rect x="10" y="31" width="16" height="3" fill="#120e1f" />
+  <rect x="14" y="34" width="8" height="2" fill="#120e1f" />
+
+  <!-- Shield Outer Gold Rim (Gilded 16-Bit Bevel) -->
+  <rect x="5" y="7" width="26" height="16" fill="#ffc825" />
+  <rect x="6" y="23" width="24" height="4" fill="#ffc825" />
+  <rect x="8" y="27" width="20" height="3" fill="#ffc825" />
+  <rect x="11" y="30" width="14" height="3" fill="#ffc825" />
+  <rect x="15" y="33" width="6" height="2" fill="#ffc825" />
+
+  <!-- Gold Top Highlight Edge -->
+  <rect x="6" y="7" width="24" height="2" fill="#ffe769" />
+  <rect x="6" y="9" width="2" height="14" fill="#ffe769" />
+  <rect x="28" y="9" width="2" height="14" fill="#d48c08" />
+
+  <!-- Shield Inner Bronze Frame -->
+  <rect x="7" y="9" width="22" height="13" fill="#5d3b14" />
+  <rect x="8" y="22" width="20" height="4" fill="#5d3b14" />
+  <rect x="10" y="26" width="16" height="3" fill="#5d3b14" />
+  <rect x="12" y="29" width="12" height="2" fill="#5d3b14" />
+
+  <!-- Shield Midnight Field (Deep Obsidian & Royal Navy) -->
+  <rect x="8" y="10" width="20" height="11" fill="#181425" />
+  <rect x="9" y="21" width="18" height="4" fill="#181425" />
+  <rect x="11" y="25" width="14" height="3" fill="#181425" />
+  <rect x="13" y="28" width="10" height="2" fill="#181425" />
+
+  <!-- Lateral Pixel Wings / Laurel Leaves (Flanks) -->
+  <!-- Left Wing -->
+  <rect x="1" y="10" width="3" height="3" fill="#ffe769" />
+  <rect x="0" y="13" width="4" height="4" fill="#ffc825" />
+  <rect x="1" y="17" width="3" height="4" fill="#d48c08" />
+  <rect x="2" y="21" width="2" height="3" fill="#8b5226" />
+  <rect x="1" y="13" width="1" height="3" fill="#ffffff" />
+
+  <!-- Right Wing -->
+  <rect x="32" y="10" width="3" height="3" fill="#ffe769" />
+  <rect x="32" y="13" width="4" height="4" fill="#ffc825" />
+  <rect x="32" y="17" width="3" height="4" fill="#d48c08" />
+  <rect x="32" y="21" width="2" height="3" fill="#8b5226" />
+  <rect x="34" y="13" width="1" height="3" fill="#ffffff" />
+
+  <!-- Centerpiece: Royal 16-Bit "L" Insignia with Beveled Gold -->
+  <!-- Vertical Stalk of L -->
+  <rect x="11" y="12" width="5" height="12" fill="#ffc825" />
+  <rect x="11" y="12" width="2" height="11" fill="#ffffff" />
+  <rect x="13" y="12" width="2" height="11" fill="#ffe769" />
+  <rect x="15" y="13" width="1" height="10" fill="#d48c08" />
+  <rect x="10" y="11" width="6" height="1" fill="#ffffff" />
+
+  <!-- Horizontal Foot of L -->
+  <rect x="11" y="20" width="13" height="5" fill="#ffc825" />
+  <rect x="11" y="20" width="13" height="2" fill="#ffffff" />
+  <rect x="13" y="22" width="11" height="2" fill="#ffe769" />
+  <rect x="11" y="24" width="14" height="1" fill="#d48c08" />
+  <!-- Serifs on foot of L -->
+  <rect x="22" y="18" width="3" height="3" fill="#ffc825" />
+  <rect x="23" y="18" width="1" height="2" fill="#ffffff" />
+
+  <!-- Central Autonomous Power Core (Radiant Cyan & BNB Crystal) -->
+  <!-- Diamond gem situated in upper right quadrant of shield -->
+  <rect x="20" y="12" width="5" height="5" fill="#3cd2c4" />
+  <rect x="21" y="11" width="3" height="7" fill="#3cd2c4" />
+  <rect x="19" y="13" width="7" height="3" fill="#3cd2c4" />
+  <!-- Gem Inner Diamond Core Sparkle -->
+  <rect x="21" y="13" width="3" height="3" fill="#86fff8" />
+  <rect x="22" y="14" width="1" height="1" fill="#ffffff" />
+  <!-- Gem Cut Shadows -->
+  <rect x="20" y="16" width="4" height="1" fill="#1f847b" />
+  <rect x="24" y="13" width="1" height="4" fill="#1f847b" />
+
+  <!-- Bottom Tip Jewel Accent -->
+  <rect x="17" y="28" width="2" height="2" fill="#3cd2c4" />
+  <rect x="17" y="27" width="2" height="1" fill="#86fff8" />
+
+  <!-- Twinkling Sparkles / Stars -->
+  <rect x="9" y="13" width="1" height="1" fill="#ffffff" />
+  <rect x="27" y="10" width="1" height="1" fill="#ffffff" />
+  <rect x="12" y="30" width="1" height="1" fill="#ffe769" />
+  <rect x="23" y="30" width="1" height="1" fill="#ffe769" />
+</svg>

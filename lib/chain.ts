@@ -1,0 +1,58 @@
+/**
+ * Web3 BSC Configuration (Chain IDs 56 and 97)
+ * Viem v2 Client setup and contract registries
+ */
+import { createPublicClient, http, defineChain } from 'viem';
+
+export const bscMainnet = defineChain({
+  id: 56,
+  name: 'BNB Smart Chain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'BNB',
+    symbol: 'BNB',
+  },
+  rpcUrls: {
+    default: { http: ['https://binance.llamarpc.com', 'https://bsc-dataseed.binance.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'BscScan', url: 'https://bscscan.com' },
+  },
+});
+
+export const bscTestnet = defineChain({
+  id: 97,
+  name: 'BNB Smart Chain Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'tBNB',
+    symbol: 'tBNB',
+  },
+  rpcUrls: {
+    default: { http: ['https://data-seed-prebsc-1-s1.binance.org:8545', 'https://bsc-testnet.publicnode.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'BscScan Testnet', url: 'https://testnet.bscscan.com' },
+  },
+  testnet: true,
+});
+
+export const CONTRACT_ADDRESSES = {
+  // ERC-8004 Agent Identity Registry
+  ERC8004_MAINNET: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
+  ERC8004_TESTNET: '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const,
+  // Venus Protocol Comptroller
+  VENUS_COMPTROLLER_MAINNET: '0xf2721703d5429BeC86bD0eD86519E0859Dd88209' as const,
+  // ERC-8183 Escrow Coordinator Mock/Testnet Address
+  ERC8183_ESCROW_TESTNET: '0x8183000000000000000000000000000000008183' as const,
+};
+
+export const bscMainnetClient = createPublicClient({
+  chain: bscMainnet,
+  transport: http(),
+});
+
+export const bscTestnetClient = createPublicClient({
+  chain: bscTestnet,
+  transport: http(),
+});

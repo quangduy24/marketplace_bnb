@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --canvas-bg: #F4F0EA;
+    --canvas-ink: #121212;
+    --neo-border: #121212;
+    
+    /* Vibrant Neo-Brutalist Tech Palette */
+    --neo-yellow: #FFE500;
+    --neo-lime: #00F59B;
+    --neo-cyan: #38BDF8;
+    --neo-blue: #2563EB;
+    --neo-coral: #FF4365;
+    --neo-purple: #A855F7;
+    --neo-orange: #FF7828;
+    --neo-cream: #FAF7F0;
+    --neo-dark: #1A1A1E;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--canvas-ink);
+    background-color: var(--canvas-bg);
+    image-rendering: auto;
+  }
+}
+
+/* Typography Families */
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-tech {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.01em;
+}
+
+.font-brand {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.font-pixel {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.font-retro {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Neo-Brutalist Hard Shadows */
+.neo-shadow-sm {
+  box-shadow: 2px 2px 0px #121212;
+}
+
+.neo-shadow {
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-shadow-lg {
+  box-shadow: 6px 6px 0px #121212;
+}
+
+.neo-shadow-xl {
+  box-shadow: 8px 8px 0px #121212;
+}
+
+/* Tactile Interactive Buttons */
+.neo-btn {
+  border: 2px solid #121212;
+  box-shadow: 3px 3px 0px #121212;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.12s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.neo-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #121212;
+}
+
+/* Neo-Brutalist Containers */
+.neo-card {
+  background-color: #FFFFFF;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-card-yellow {
+  background-color: #FFE500;
+  color: #121212;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-card-lime {
+  background-color: #00F59B;
+  color: #121212;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-card-dark {
+  background-color: #1A1A1E;
+  color: #F4F0EA;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.neo-card-cream {
+  background-color: #FAF7F0;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+}
+
+/* Tech Editorial Stamp / Badge */
+.neo-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid #121212;
+  box-shadow: 2px 2px 0px #121212;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Subtle Technical Dot Matrix Blueprint Background */
+.editorial-grid {
+  background-color: #F4F0EA;
+  background-image: radial-gradient(rgba(18, 18, 18, 0.15) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.editorial-grid-dark {
+  background-color: #16161A;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Subtle Warning / Construction Diagonal Stripes */
+.brutalist-stripes {
+  background: repeating-linear-gradient(
+    -45deg,
+    #FFE500,
+    #FFE500 10px,
+    #121212 10px,
+    #121212 20px
+  );
+}
+
+.brutalist-stripes-subtle {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(18, 18, 18, 0.04),
+    rgba(18, 18, 18, 0.04) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+/* Backward-compatibility classes for existing code to prevent breakages */
+.pixel-box {
+  background-color: #FFFFFF;
+  border: 2px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+  color: #121212;
+}
+
+.pixel-box-parchment {
+  background-color: #FAF7F0;
+  border: 2.5px solid #121212;
+  box-shadow: 5px 5px 0px #121212;
+  color: #121212;
+}
+
+.pixel-box-wood {
+  background-color: #FFF2CC;
+  border: 2px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+  color: #121212;
+}
+
+.pixel-btn {
+  border: 2px solid #121212;
+  box-shadow: 3px 3px 0px #121212;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  cursor: pointer;
+}
+
+.pixel-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #121212;
+}
+
+.pixel-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #121212;
+}
+
+.pixel-panel-inset {
+  border: 2px solid #121212;
+  background-color: #F4F0EA;
+}
+
+.pixel-box-gold {
+  background-color: #FFE500;
+  border: 2.5px solid #121212;
+  box-shadow: 4px 4px 0px #121212;
+  color: #121212;
+}
+
+.pixel-glow-gold {
+  box-shadow: 4px 4px 0px #FFE500;
+}
+
+.pixel-glow-cyan {
+  box-shadow: 4px 4px 0px #38BDF8;
+}
+
+.pixel-glow-red {
+  box-shadow: 4px 4px 0px #FF4365;
+}
+
+/* Custom Neo-Brutalist Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F4F0EA;
+  border-left: 2px solid #121212;
+}
+::-webkit-scrollbar-thumb {
+  background: #121212;
+  border: 1px solid #F4F0EA;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FFE500;
+}
