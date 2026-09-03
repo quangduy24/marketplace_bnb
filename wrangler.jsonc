@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "marketplace-bnb",
+  "main": "server.ts",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "BSC_MAINNET_RPC_URLS": "https://binance.llamarpc.com,https://bsc-dataseed.binance.org",
+    "BSC_TESTNET_RPC_URLS": "https://data-seed-prebsc-1-s1.binance.org:8545,https://bsc-testnet.publicnode.com",
+    "SCAN_8004_API_URL": "https://api.8004scan.io/api/v1",
+    "AUTO_SYNC": "true",
+    "SYNC_INTERVAL_MS": "3600000",
+    "DISABLE_HMR": "true"
+  },
+  "secrets": {
+    "required": ["DATABASE_URL"]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true }
+  }
+}

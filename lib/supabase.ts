@@ -4,7 +4,23 @@ import { eq, and, desc, count, sql, arrayContains, not } from 'drizzle-orm';
 import * as schema from '../db/schema.ts';
 import seedData from '../seeds/four-sellers.json' with { type: 'json' };
 
-const connectionString = process.env.DATABASE_URL;
+function getConnectionString(): string | undefined {
+  // Workers/Pages: env is available via globalThis.process.env (nodejs_compat) or Cloudflare env binding
+  // Local: process.env.DATABASE_URL from .env / .dev.vars
+  // The `as any` guards against `process` being undefined in some bundlers
+  try {
+    const p = (globalThis as any)?.process?.env?.DATABASE_URL;
+    if (p) return p;
+  } catch {}
+  try {
+    if (typeof process !== 'undefined' && (process as any)?.env?.DATABASE_URL) {
+      return (process as any).env.DATABASE_URL;
+    }
+  } catch {}
+  return undefined;
+}
+
+const connectionString = getConnectionString();
 
 export let client: any = null;
 export let db: any = null;

@@ -21,5 +21,11 @@ secrets/
 .agents/
 .claude/
 
+# Wrangler local secrets (Cloudflare) - never commit
+.dev.vars
+.dev.vars.*
+worker-configuration.d.ts
+.wrangler/
+
 # Local test scripts
 test/

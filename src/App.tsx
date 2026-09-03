@@ -215,26 +215,35 @@ export default function App() {
     async (provider: Eip1193Provider, address: string) => {
       setIsVerifying(true);
       try {
-        const { message, signature } = await signVerificationMessage(provider, address, network);
+        const { signature } = await signVerificationMessage(provider, address, network);
         const res = await fetch('/api/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ wallet: address, signature, chainId: BSC_CHAIN_IDS[network] }),
         });
-        const data = await res.json();
+        let data: any = { verified: false };
+        try {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : { verified: false, error: `Empty response (${res.status})` };
+        } catch (parseErr: any) {
+          throw new Error(`Verification service unavailable (${res.status}) - please retry`);
+        }
+        if (!res.ok) {
+          throw new Error(data?.error || `Verification failed (${res.status})`);
+        }
         if (data.verified) {
           setWalletVerified(true);
           notify('Identity verified — signature confirmed on BNB Chain (0 gas)', 'ok');
         } else {
           setWalletVerified(false);
-          notify('Signature verification failed — please retry', 'err');
+          notify(data?.error || 'Signature verification failed — please retry', 'err');
         }
       } catch (err: any) {
         if (err?.code === 4001 || String(err?.message || '').toLowerCase().includes('reject')) {
           notify('Signature skipped — tap UNVERIFIED badge next to your address to sign (0 gas)', 'err');
         } else {
           console.error('Identity verification failed:', err);
-          notify(`Signature verification failed: ${String(err?.message || err).slice(0, 100)}`, 'err');
+          notify(`Signature verification failed: ${String(err?.message || err).slice(0, 120)}`, 'err');
         }
       } finally {
         setIsVerifying(false);
