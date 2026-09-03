@@ -25,8 +25,40 @@ import {
   fetchUBalance,
 } from './lib/wallet.ts';
 
+const VIEW_TO_PATH: Record<AppView, string> = {
+  story: '/story',
+  town: '/plaza',
+  marketplace: '/market',
+  agents: '/agents',
+  history: '/history',
+  profits: '/treasury',
+  demo: '/demo',
+};
+
+const PATH_TO_VIEW: Record<string, AppView> = {
+  '/': 'town',
+  '/plaza': 'town',
+  '/town': 'town',
+  '/market': 'marketplace',
+  '/marketplace': 'marketplace',
+  '/agents': 'agents',
+  '/sanctuary': 'agents',
+  '/history': 'history',
+  '/logbook': 'history',
+  '/treasury': 'profits',
+  '/profits': 'profits',
+  '/demo': 'demo',
+  '/story': 'story',
+};
+
+function getInitialView(): AppView {
+  if (typeof window === 'undefined') return 'town';
+  const p = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  return PATH_TO_VIEW[p] || 'town';
+}
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>('story');
+  const [currentView, setCurrentView] = useState<AppView>(() => getInitialView());
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [hires, setHires] = useState<HireData[]>([]);
   const [walletAddress, setWalletAddress] = useState<string>('');
@@ -56,6 +88,26 @@ export default function App() {
   const [walletVerified, setWalletVerified] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const activeProviderRef = useRef<Eip1193Provider | null>(null);
+
+  // Sync URL <-> view (Browser History)
+  const navigate = useCallback((view: AppView) => {
+    const path = VIEW_TO_PATH[view] || '/plaza';
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+    setCurrentView(view);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => setCurrentView(getInitialView());
+    window.addEventListener('popstate', onPopState);
+    // Ensure initial URL matches view (e.g. / -> /plaza)
+    const initialPath = VIEW_TO_PATH[getInitialView()];
+    if (window.location.pathname !== initialPath && getInitialView() === 'town' && window.location.pathname === '/') {
+      window.history.replaceState(null, '', initialPath);
+    }
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   // Live EIP-6963 discovery while the picker is open
   useEffect(() => {
@@ -172,7 +224,7 @@ export default function App() {
 
     // Switch to Agent House to witness active chamber!
     setFocusedChamber(payload.catalog as CareerCategory);
-    setCurrentView('agents');
+    navigate('agents');
   };
 
   // Sync state transition for an agent job in the house
@@ -202,7 +254,7 @@ export default function App() {
 
   const handleSelectHiredSlot = (hire: HireData) => {
     setFocusedChamber((hire.catalog || 'monitoring') as CareerCategory);
-    setCurrentView('agents');
+    navigate('agents');
   };
 
   const handleConnectWallet = async () => {
@@ -330,19 +382,19 @@ export default function App() {
         walletVerified={walletVerified}
         isVerifying={isVerifying}
         onVerifyWallet={handleVerifyWallet}
-        onNavigate={(view) => setCurrentView(view)}
+        onNavigate={(view) => navigate(view)}
         network={network}
         onToggleNetwork={handleToggleNetwork}
       />
 
       {/* Main Workspace Body: Left Nav + Viewport */}
       <div className="flex flex-1 overflow-hidden relative">
-        <LeftNav currentView={currentView} onNavigate={(view) => setCurrentView(view)} />
+        <LeftNav currentView={currentView} onNavigate={(view) => navigate(view)} />
 
         <main className="flex-1 overflow-y-auto relative bg-[#F4F0EA] editorial-grid">
           {currentView === 'story' && (
             <StoryBeatController
-              onCompleteStory={() => setCurrentView('marketplace')}
+              onCompleteStory={() => navigate('marketplace')}
               onConnectWallet={handleConnectWallet}
               walletAddress={walletAddress}
             />
@@ -350,7 +402,7 @@ export default function App() {
 
           {currentView === 'town' && (
             <TownMap
-              onNavigate={(view) => setCurrentView(view)}
+              onNavigate={(view) => navigate(view)}
               activeJobsCount={activeJobsCount}
             />
           )}
@@ -369,7 +421,7 @@ export default function App() {
             <AgentHouse
               hires={hires}
               agents={agents}
-              onNavigateMarket={() => setCurrentView('marketplace')}
+              onNavigateMarket={() => navigate('marketplace')}
               onSyncJobState={handleSyncJobState}
               healthFactor={walletContext.healthFactor}
               focusedChamber={focusedChamber}
@@ -382,7 +434,7 @@ export default function App() {
               agents={agents}
               onFocusAgentInHouse={(cat) => {
                 setFocusedChamber(cat);
-                setCurrentView('agents');
+                navigate('agents');
               }}
             />
           )}
@@ -391,14 +443,14 @@ export default function App() {
             <ProfitsDashboard
               hires={hires}
               onNavigateMarket={(cat) => {
-                setCurrentView('marketplace');
+                navigate('marketplace');
               }}
               buyerAddress={walletAddress}
             />
           )}
 
           {currentView === 'demo' && (
-            <AutoDemoRunner onNavigate={(view) => setCurrentView(view)} />
+            <AutoDemoRunner onNavigate={(view) => navigate(view)} />
           )}
         </main>
       </div>
@@ -408,7 +460,7 @@ export default function App() {
         hires={hires}
         agents={agents}
         onSelectHiredSlot={handleSelectHiredSlot}
-        onNavigate={(view) => setCurrentView(view)}
+        onNavigate={(view) => navigate(view)}
       />
 
       {/* Toast notification */}
