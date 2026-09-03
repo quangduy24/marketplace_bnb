@@ -762,7 +762,7 @@ This ensures every agent a user can hire is **registered on-chain, actively main
 
 ## 19. Roadmap
 
-- [ ] Gemini-powered semantic classification fallback (server-side `@google/genai`)
+- [ ] LLM-powered semantic classification & concurrent multi-agent orchestration — server-side LLM (Gemini via `@google/genai`) for intent understanding and taxonomy fallback, plus an orchestration layer that lets one user coordinate many agents in parallel; when a job category has insufficient verified supply, the system auto-recommends the best-matched candidates from the live `8004scan` discovery pool (bounded semantic search) — inspired by **Jeff Dean** (Google Chief Scientist, March 2026 YC Startup School / Latent.Space interview) and his vision that *a single developer will manage ~50 AI agents like a team of interns*, where leverage shifts from hand-writing code to defining specifications, constraints, and *taste*
 - [ ] On-chain `ERC-8183` settlement plumbing beyond mock/testnet escrow
 - [ ] PancakeSwap V3 position NFT ingestion for true `hasOutOfRangeLiquidity` detection
 - [ ] Multi-asset HF aggregation (price oracle integration)
