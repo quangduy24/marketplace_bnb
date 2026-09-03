@@ -1,62 +1,28 @@
-/**
- * Cloudflare Worker entry for marketplace-bnb (Option B - full-stack on Workers + Hyperdrive)
- * - Serves static assets from `dist/` via `env.ASSETS`
- * - Handles all `/api/*` routes with the same logic as `server.ts` but using Hyperdrive
- * - Uses Hono for routing (lightweight, Workers-native)
- */
 import { Hono } from 'hono';
+import { handle } from 'hono/vercel';
 import { verifyMessage } from 'viem';
-import { createDb, SqlStore, MemoryStore, type Store } from './lib/supabase.ts';
-import { buildVerificationMessage } from './lib/auth-message.ts';
-import { computeBanditScore } from './lib/bandit.ts';
-import { analyzeWalletContext } from './lib/context.ts';
-import { CONTRACT_ADDRESSES } from './lib/chain.ts';
-import { runSemanticSync, runIncrementalSync } from './workers/sync.ts';
-import { runClassificationWorker } from './workers/classify.ts';
-import { runProbeWorker } from './workers/probe.ts';
-import { runClassificationUnitTests } from './lib/classify.ts';
+import { store } from '../lib/supabase.ts';
+import { buildVerificationMessage } from '../lib/auth-message.ts';
+import { computeBanditScore } from '../lib/bandit.ts';
+import { analyzeWalletContext } from '../lib/context.ts';
+import { CONTRACT_ADDRESSES } from '../lib/chain.ts';
+import { runSemanticSync, runIncrementalSync } from '../workers/sync.ts';
+import { runClassificationWorker } from '../workers/classify.ts';
+import { runProbeWorker } from '../workers/probe.ts';
+import { runClassificationUnitTests } from '../lib/classify.ts';
 
-type Env = {
-  ASSETS: { fetch: typeof fetch };
-  HYPERDRIVE?: { connectionString: string };
-  DATABASE_URL?: string;
-  SCAN_8004_API_URL?: string;
-  BSC_MAINNET_RPC_URLS?: string;
-  BSC_TESTNET_RPC_URLS?: string;
-  [key: string]: any;
-};
+const app = new Hono().basePath('/api');
 
-// Lazy per-request store: reuse Hyperdrive connection across requests in same isolate
-let cachedStore: Store | null = null;
-let cachedEnvKey: string | null = null;
+app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/tests/classification', (c) => c.json(runClassificationUnitTests()));
 
-function getStore(env: Env): Store {
-  const key = env.HYPERDRIVE?.connectionString || env.DATABASE_URL || 'memory';
-  if (cachedStore && cachedEnvKey === key) return cachedStore;
-  const { db } = createDb(env);
-  cachedStore = db ? new SqlStore(db) : new MemoryStore();
-  cachedEnvKey = key;
-  return cachedStore;
-}
-
-const app = new Hono<{ Bindings: Env }>();
-
-// Health
-app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
-
-// Classification unit tests
-app.get('/api/tests/classification', (c) => c.json(runClassificationUnitTests()));
-
-// Context
-app.get('/api/context', async (c) => {
+app.get('/context', async (c) => {
   const wallet = c.req.query('wallet');
   const context = await analyzeWalletContext(wallet);
   return c.json(context);
 });
 
-// List & Rank Agents
-app.get('/api/agents', async (c) => {
-  const store = getStore(c.env);
+app.get('/agents', async (c) => {
   const category = c.req.query('category') || 'all';
   const activeOnly = c.req.query('activeOnly') !== 'false';
   const verifiedOnly = c.req.query('verifiedOnly') === 'true';
@@ -92,22 +58,19 @@ app.get('/api/agents', async (c) => {
   return c.json({ agents: scoredAgents, total: scoredAgents.length, walletContext });
 });
 
-app.get('/api/agents/:id', async (c) => {
-  const store = getStore(c.env);
+app.get('/agents/:id', async (c) => {
   const agent = await store.getAgentById(c.req.param('id'));
   if (!agent) return c.json({ error: 'Agent not found' }, 404);
   return c.json(agent);
 });
 
-app.get('/api/hires', async (c) => {
-  const store = getStore(c.env);
+app.get('/hires', async (c) => {
   const buyer = c.req.query('buyer');
   const hiresList = await store.getHires(buyer || undefined);
   return c.json({ hires: hiresList, count: hiresList.length });
 });
 
-app.post('/api/hires/prepare', async (c) => {
-  const store = getStore(c.env);
+app.post('/hires/prepare', async (c) => {
   const { agentId, budgetU, rail, taskSummary } = await c.req.json();
   const agent: any = await store.getAgentById(agentId);
   if (!agent) return c.json({ error: 'Agent not found for quoting' }, 404);
@@ -128,8 +91,7 @@ app.post('/api/hires/prepare', async (c) => {
   });
 });
 
-app.post('/api/hires', async (c) => {
-  const store = getStore(c.env);
+app.post('/hires', async (c) => {
   const { buyer, buyerAddress, chainId, agentId, catalog, rail, jobId, txHash, budgetU, lastAction } = await c.req.json();
   const resolvedBuyer = buyer || buyerAddress;
   if (!resolvedBuyer || !agentId || !catalog || !rail) {
@@ -151,8 +113,7 @@ app.post('/api/hires', async (c) => {
   return c.json(hire, 201);
 });
 
-app.post('/api/hires/:id/sync', async (c) => {
-  const store = getStore(c.env);
+app.post('/hires/:id/sync', async (c) => {
   const { state, txHash, artifactUri, lastAction } = await c.req.json();
   const hire: any = await store.getHireById(c.req.param('id'));
   if (!hire) return c.json({ error: 'Hire record not found' }, 404);
@@ -165,15 +126,15 @@ app.post('/api/hires/:id/sync', async (c) => {
   return c.json(updated);
 });
 
-app.post('/api/workers/sync', async (c) => {
+app.post('/workers/sync', async (c) => {
   const mode = c.req.query('mode') || 'semantic';
   const result = mode === 'incremental' ? await runIncrementalSync(3) : await runSemanticSync();
   return c.json({ success: true, result });
 });
-app.post('/api/workers/classify', async (c) => c.json({ success: true, result: await runClassificationWorker() }));
-app.post('/api/workers/probe', async (c) => c.json({ success: true, result: await runProbeWorker() }));
+app.post('/workers/classify', async (c) => c.json({ success: true, result: await runClassificationWorker() }));
+app.post('/workers/probe', async (c) => c.json({ success: true, result: await runProbeWorker() }));
 
-app.post('/api/auth/verify', async (c) => {
+app.post('/auth/verify', async (c) => {
   const { wallet, signature, chainId } = (await c.req.json().catch(() => ({}))) as any;
   if (!wallet || !signature || typeof wallet !== 'string' || typeof signature !== 'string') {
     return c.json({ verified: false, error: 'Missing wallet or signature' }, 400);
@@ -187,21 +148,4 @@ app.post('/api/auth/verify', async (c) => {
   }
 });
 
-export default {
-  async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
-    const url = new URL(request.url);
-    // API routes -> Hono
-    if (url.pathname.startsWith('/api/')) {
-      return app.fetch(request, env, ctx);
-    }
-    // Static assets (dist/) -> Cloudflare Assets binding
-    try {
-      const assetRes = await env.ASSETS.fetch(request);
-      // If asset found, return it; otherwise SPA fallback to index.html
-      if (assetRes.status !== 404) return assetRes;
-    } catch {}
-    // SPA fallback
-    const indexReq = new Request(new URL('/index.html', request.url).toString(), request);
-    return env.ASSETS.fetch(indexReq);
-  },
-};
+export default handle(app);

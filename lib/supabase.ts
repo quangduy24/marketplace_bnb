@@ -33,7 +33,8 @@ export function createDb(env?: any) {
     return { client: null, db: null };
   }
   try {
-    const c = postgres(cs, { prepare: false, max: 5 });
+    const isVercel = !!(process as any)?.env?.VERCEL || !!env?.VERCEL;
+    const c = postgres(cs, { prepare: false, max: isVercel ? 1 : 5 });
     const d = drizzle(c, { schema });
     console.log('[Supabase] Initialized via', env?.HYPERDRIVE ? 'Hyperdrive' : 'postgres.js Transaction Pooler');
     return { client: c, db: d };
