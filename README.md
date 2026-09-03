@@ -336,7 +336,7 @@ lans-sanctuary/
 │   ├── classify.ts           # runClassificationWorker
 │   └── probe.ts              # runProbeWorker + probeAgentEndpoint()
 ├── seeds/
-│   └── four-sellers.json     # 4 canonical demo agents (Aegis, Chronos, Vulcan, Demeter)
+│   └── four-sellers.json     # Reference taxonomy sample (schema reference — marketplace serves live verified ERC-8004 agents, not this file)
 ├── src/
 │   ├── components/
 │   │   ├── common/           # LansLogo, Badges, neo-brutalist primitives
@@ -555,7 +555,7 @@ EIP-6963 multi-wallet discovery, `Eip1193Provider`, `switchBscChain` (adds BSC i
 |---|---|---|
 | Node.js | `>= 18.0.0` | `node -v` |
 | npm | `>= 9.0.0` | `npm -v` |
-| Postgres (optional) | any | Only if you want persistence; otherwise in-memory seed store |
+| Postgres (optional) | any | Recommended for persistence; without it the app uses a resilient in-memory cache (still serving only verified on-chain agents) |
 | Web3 Wallet (optional) | MetaMask / Trust / injected | For live signing on BSC testnet |
 
 ### Installation
@@ -570,14 +570,14 @@ npm install
 
 # 3. Environment
 cp .env.example .env
-# Edit .env — see §13. At minimum you can run with no DATABASE_URL (seed fallback).
+# Edit .env — see §13. At minimum you can run with no DATABASE_URL (resilient in-memory cache; production should set DATABASE_URL).
 
 # 4. Dev server (Express + Vite HMR)
 npm run dev
 # → http://localhost:3000  (Vite middleware active)
 ```
 
-> `GEMINI_API_KEY` is server-managed and never exposed to the client. When `DATABASE_URL` is unset the app runs on the 4-agent seed dataset with full functionality.
+> `GEMINI_API_KEY` is server-managed and never exposed to the client. When `DATABASE_URL` is unset the app runs with a resilient in-memory cache; marketplace data still comes exclusively from verified on-chain ERC-8004 agents (set `DATABASE_URL` for persistent Postgres in production).
 
 ### Quick Smoke Test
 
@@ -644,7 +644,7 @@ Copy `.env.example` → `.env`. All variables are optional with safe fallbacks.
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | *(unset → MemoryStore)* | Postgres connection string — Supabase transaction pooler `…:6543` recommended |
+| `DATABASE_URL` | *(unset → resilient in-memory cache; marketplace still serves only verified on-chain agents)* | Postgres connection string — Supabase transaction pooler `…:6543` recommended for production |
 | `NODE_ENV` | `development` | `development` → Vite middleware; `production` → static `dist` |
 | `DISABLE_HMR` | `false` | `true` disables Vite HMR + file watching (AI Studio) |
 | `PORT` | `3000` | Express HTTP port |
@@ -732,18 +732,31 @@ Source: [`docs/onchain-proof.md`](docs/onchain-proof.md) — complete testnet li
 See [§5.2](#52-directory-structure) for the annotated tree. Key invariants:
 
 - `server.ts` and `api/index.ts` share identical ranking, context, and hire logic — keep them in sync when adding endpoints.
-- `lib/supabase.ts` exports a singleton `store: SqlStore | MemoryStore`; `MemoryStore` seeds from `seeds/four-sellers.json` so the marketplace is never empty.
 - `workers/sync.ts` is intentionally bounded — it never sweeps 300k+ registry entries; caps are enforced via `MAX_PER_CATEGORY` / `MAX_TOTAL_LATEST`.
 - Frontend routing is file-level in `App.tsx` with `VIEW_TO_PATH` / `PATH_TO_VIEW` plus `history.pushState` — no external router dependency.
+- `lib/supabase.ts` exposes a unified `store` (`SqlStore` on Postgres, resilient in-memory fallback) — all marketplace reads go through the same verified-agent pipeline.
 
-### Seed Agents
+### Real Data & Verified Agent Pipeline
 
-| ID | Name | Stall | Hourly | p99 | Reputation | α / β |
-|---|---|---|---|---|---|---|
-| `watchtower-prime-01` | Aegis Watchtower Sentinel | `monitoring` | $0.15 | 420 ms | 96 | 18 / 2 |
-| `grid-master-02` | Chronos Dynamic Grid Bot | `grid` | $0.45 | 310 ms | 94 | 24 / 3 |
-| `forge-shield-03` | Vulcan Health Factor Guardian | `health_factor` | $0.30 | 180 ms | 99 | 30 / 1 |
-| `harvest-greenhouse-04` | Demeter APY Yield Harvester | `yield` | $0.20 | 480 ms | 95 | 20 / 2 |
+LANS serves **only real, on-chain registered agents** — no mock or synthetic listings. Every agent surfaced to users has passed a multi-stage verification pipeline designed for trust and safety:
+
+**1. Source — ERC-8004 Registry.** Agents are discovered exclusively from the canonical on-chain identity registry (`0x8004A169...` on BSC 56, `0x8004A818...` on BSC 97) via the `8004scan` indexer (`lib/8004scan.ts:117` `mapRawToAgent`). Sync is strictly capped (`MAX_PER_CATEGORY=200`, `MAX_TOTAL_LATEST=1000`, `workers/sync.ts:17`) and rate-limited with `2100 ms` pacing and `429` exponential backoff — no blind sweep of 300k+ entries.
+
+**2. Classification & Filtering.** `workers/classify.ts` maps indexer tags through `TAG_CATEGORY_MAP` (`lib/8004scan.ts:61`) and falls back to the keyword taxonomy (`lib/classify.ts:8`). Agents classified as `uncategorized` are **excluded** from all marketplace queries (`lib/supabase.ts:87` `not(arrayContains(labels, ['uncategorized']))`), so users only see agents with a clear, relevant career.
+
+**3. Liveness & Reachability Probe.** `workers/probe.ts:53` `runProbeWorker()` verifies each `agentUri` (with `{agentId}` template resolution) via `HEAD → GET` with a `5 s` timeout. The indexer signal `is_endpoint_verified` / `health_status` is the primary source; a live HTTP probe is the fallback (`probeAgentEndpoint`). Results are persisted as `reachable`.
+
+**4. Hireable Gate.** An agent becomes `hireable` only when:
+
+```
+hireable = active && reachable && (x402Supported || agentUri || erc8183)
+```
+
+(`workers/probe.ts:71`, `lib/8004scan.ts:161`). The marketplace defaults to `activeOnly=true`; passing `verifiedOnly=true` additionally requires `reachable && hireable`. Unverified, inactive, or unreachable agents never appear in hiring flows.
+
+**5. Ranking on the Verified Set.** `GET /api/agents` Stage 1 hard-filters on the verified set above, then Stage 2 applies the hybrid Bayesian rank (`FinalScore`, see §4.6). Users can further filter by `category`, search by `q`, and compare side-by-side in `CompareModal` before hiring through `ERC-8183` / `x402` escrow with on-chain `Keccak256` proof verification.
+
+This ensures every agent a user can hire is **registered on-chain, actively maintained, endpoint-verified, and payment-rail ready** — funds are escrowed only to real, reachable providers, with full BscScan auditability.
 
 ---
 
