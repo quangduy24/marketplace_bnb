@@ -4,39 +4,49 @@ import { eq, and, desc, count, sql, arrayContains, not } from 'drizzle-orm';
 import * as schema from '../db/schema.ts';
 import seedData from '../seeds/four-sellers.json' with { type: 'json' };
 
-function getConnectionString(): string | undefined {
-  // Workers/Pages: env is available via globalThis.process.env (nodejs_compat) or Cloudflare env binding
-  // Local: process.env.DATABASE_URL from .env / .dev.vars
-  // The `as any` guards against `process` being undefined in some bundlers
+export function getConnectionString(env?: any): string | undefined {
+  // Priority: Hyperdrive binding > Workers env.DATABASE_URL > Node process.env
   try {
-    const p = (globalThis as any)?.process?.env?.DATABASE_URL;
+    const hyperdriveCs = env?.HYPERDRIVE?.connectionString as string | undefined;
+    if (hyperdriveCs) return hyperdriveCs;
+  } catch {}
+  try {
+    const envDb = env?.DATABASE_URL as string | undefined;
+    if (envDb) return envDb;
+  } catch {}
+  try {
+    const p = (globalThis as any)?.process?.env?.DATABASE_URL as string | undefined;
     if (p) return p;
   } catch {}
   try {
     if (typeof process !== 'undefined' && (process as any)?.env?.DATABASE_URL) {
-      return (process as any).env.DATABASE_URL;
+      return (process as any).env.DATABASE_URL as string;
     }
   } catch {}
   return undefined;
 }
 
-const connectionString = getConnectionString();
-
-export let client: any = null;
-export let db: any = null;
-
-if (connectionString) {
-  try {
-    // Transaction pooler optimized for Serverless / Edge (port 6543)
-    client = postgres(connectionString, { prepare: false, max: 5 });
-    db = drizzle(client, { schema });
-    console.log('[Supabase] Initialized Transaction Pooler via postgres.js');
-  } catch (err) {
-    console.warn('[Supabase] Failed connecting to postgres directly, using in-memory agent cache:', err);
+export function createDb(env?: any) {
+  const cs = getConnectionString(env);
+  if (!cs) {
+    console.log('[Supabase] DATABASE_URL / HYPERDRIVE not set. Running in resilient mock/local store with seed agents.');
+    return { client: null, db: null };
   }
-} else {
-  console.log('[Supabase] DATABASE_URL not set. Running in resilient mock/local store with seed agents.');
+  try {
+    const c = postgres(cs, { prepare: false, max: 5 });
+    const d = drizzle(c, { schema });
+    console.log('[Supabase] Initialized via', env?.HYPERDRIVE ? 'Hyperdrive' : 'postgres.js Transaction Pooler');
+    return { client: c, db: d };
+  } catch (err) {
+    console.warn('[Supabase] Failed connecting to postgres, using in-memory agent cache:', err);
+    return { client: null, db: null };
+  }
 }
+
+// Eager init for Node (local dev / `node dist/server.cjs`) — uses process.env
+const _init = createDb();
+export let client: any = _init.client;
+export let db: any = _init.db;
 
 export interface Store {
   getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean): Promise<schema.Agent[]>;

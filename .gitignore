@@ -27,5 +27,8 @@ secrets/
 worker-configuration.d.ts
 .wrangler/
 
+# Bun lockfile - Cloudflare uses npm (bun 1.2.15 incompatible with lockfileVersion 2)
+bun.lock
+
 # Local test scripts
 test/
