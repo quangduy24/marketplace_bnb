@@ -6,7 +6,7 @@ import { buildVerificationMessage } from '../lib/auth-message.ts';
 import { computeBanditScore } from '../lib/bandit.ts';
 import { analyzeWalletContext } from '../lib/context.ts';
 import { CONTRACT_ADDRESSES } from '../lib/chain.ts';
-import { runSemanticSync, runIncrementalSync } from '../workers/sync.ts';
+import { runSemanticSync, runIncrementalSync, runLatestSync } from '../workers/sync.ts';
 import { runClassificationWorker } from '../workers/classify.ts';
 import { runProbeWorker } from '../workers/probe.ts';
 import { runClassificationUnitTests } from '../lib/classify.ts';
@@ -57,6 +57,43 @@ app.get('/agents', async (c) => {
   scoredAgents.sort((a: any, b: any) => b.finalScore - a.finalScore);
   return c.json({ agents: scoredAgents, total: scoredAgents.length, walletContext });
 });
+
+app.get('/agents/stream', async (c) => {
+  // SSE for immediate sync after DB update (no polling)
+  const stream = new ReadableStream({
+    start(controller) {
+      const enc = new TextEncoder();
+      const send = (payload: any) => {
+        try {
+          controller.enqueue(enc.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        } catch {}
+      };
+      // @ts-ignore global broadcast registry for Vercel (single isolate fallback)
+      const g: any = globalThis as any;
+      g.__sseClients = g.__sseClients || new Set();
+      g.__sseClients.add(send);
+      // @ts-ignore close handling
+      c.req.raw.signal?.addEventListener('abort', () => g.__sseClients.delete(send));
+      send({ type: 'connected', at: new Date().toISOString() });
+    },
+  });
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+  });
+});
+
+function broadcastSse(payload: any) {
+  const g: any = globalThis as any;
+  const clients: Set<any> = g.__sseClients;
+  if (!clients) return;
+  for (const send of Array.from(clients)) {
+    try {
+      send(payload);
+    } catch {
+      clients.delete(send);
+    }
+  }
+}
 
 app.get('/agents/:id', async (c) => {
   const agent = await store.getAgentById(c.req.param('id'));
@@ -128,7 +165,12 @@ app.post('/hires/:id/sync', async (c) => {
 
 app.post('/workers/sync', async (c) => {
   const mode = c.req.query('mode') || 'semantic';
-  const result = mode === 'incremental' ? await runIncrementalSync(3) : await runSemanticSync();
+  const maxPages = Number(c.req.query('maxPages') ?? (mode === 'latest' ? 20 : 3));
+  let result: any;
+  if (mode === 'latest') result = await runLatestSync();
+  else if (mode === 'incremental') result = await runIncrementalSync(maxPages);
+  else result = await runSemanticSync();
+  broadcastSse({ type: 'agents-updated', mode, result, at: new Date().toISOString() });
   return c.json({ success: true, result });
 });
 app.post('/workers/classify', async (c) => c.json({ success: true, result: await runClassificationWorker() }));

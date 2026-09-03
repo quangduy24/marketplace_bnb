@@ -9,10 +9,11 @@ import { buildVerificationMessage } from './lib/auth-message.ts';
 import { computeBanditScore } from './lib/bandit.ts';
 import { analyzeWalletContext } from './lib/context.ts';
 import { CONTRACT_ADDRESSES } from './lib/chain.ts';
-import { runSemanticSync, runIncrementalSync } from './workers/sync.ts';
+import { runSemanticSync, runIncrementalSync, runLatestSync } from './workers/sync.ts';
 import { runClassificationWorker } from './workers/classify.ts';
 import { runProbeWorker } from './workers/probe.ts';
 import { runClassificationUnitTests } from './lib/classify.ts';
+import { addSseClient, broadcast } from './lib/sync-broadcast.ts';
 
 async function startServer() {
   const app = express();
@@ -108,6 +109,18 @@ async function startServer() {
       total: scoredAgents.length,
       walletContext,
     });
+  });
+
+  // SSE: immediate Backend → Frontend sync (no polling) - MUST be before :id route
+  app.get('/api/agents/stream', (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+    res.write('retry: 10000\n\n');
+    const cleanup = addSseClient(res);
+    req.on('close', cleanup);
   });
 
   // Get Agent Detail
@@ -212,13 +225,17 @@ async function startServer() {
   // Workers trigger endpoints
   app.post('/api/workers/sync', async (req, res) => {
     const mode = req.query.mode || 'semantic';
-    if (mode === 'incremental') {
-      const result = await runIncrementalSync(3);
-      res.json({ success: true, result });
+    const maxPages = Number(req.query.maxPages ?? (mode === 'latest' ? 20 : 3));
+    let result: any;
+    if (mode === 'latest') {
+      result = await runLatestSync();
+    } else if (mode === 'incremental') {
+      result = await runIncrementalSync(maxPages);
     } else {
-      const result = await runSemanticSync();
-      res.json({ success: true, result });
+      result = await runSemanticSync();
     }
+    broadcast({ type: 'agents-updated', mode, result, at: new Date().toISOString() });
+    res.json({ success: true, result });
   });
 
   app.post('/api/workers/classify', async (_req, res) => {
@@ -270,15 +287,16 @@ async function startServer() {
     console.log(`[Agent Villa] Server running on http://0.0.0.0:${PORT}`);
   });
 
-  // Background auto-sync: initial semantic crawl if empty, then hourly incremental + probe
+  // Background auto-sync: 24h for 1000 latest (filtered), immediate SSE broadcast after each sync
   if (process.env.AUTO_SYNC !== 'false') {
-    const intervalMs = Number(process.env.SYNC_INTERVAL_MS ?? 3600000);
+    const intervalMs = Number(process.env.SYNC_INTERVAL_MS ?? 86400000);
     setTimeout(async () => {
       try {
         const total = await store.countAgents();
         if (total === 0) {
           console.log('[AutoSync] Agents table empty — running initial semantic sync...');
           await runSemanticSync();
+          broadcast({ type: 'agents-updated', mode: 'semantic', at: new Date().toISOString() });
         } else {
           console.log(`[AutoSync] Agents table has ${total} rows — skipping initial sync.`);
         }
@@ -288,8 +306,9 @@ async function startServer() {
 
       setInterval(async () => {
         try {
-          await runIncrementalSync(2);
-          await runProbeWorker();
+          const result = await runLatestSync();
+          broadcast({ type: 'agents-updated', mode: 'latest', result, at: new Date().toISOString() });
+          console.log('[AutoSync] 24h latest sync (1000) done:', result);
         } catch (err) {
           console.warn('[AutoSync] Interval sync failed:', err);
         }

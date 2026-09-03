@@ -64,7 +64,7 @@ export default function App() {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [walletBalanceU, setWalletBalanceU] = useState<number>(0);
   const [walletBalanceBnb, setWalletBalanceBnb] = useState<number>(0);
-  const [network, setNetwork] = useState<BscNetwork>('bscTestnet');
+  const [network, setNetwork] = useState<BscNetwork>('bscMainnet');
   const [focusedChamber, setFocusedChamber] = useState<CareerCategory | null>(null);
 
   const [walletContext, setWalletContext] = useState<WalletContextState>({
@@ -190,6 +190,33 @@ export default function App() {
     fetchContext();
   }, [fetchAgents, fetchHires, fetchContext]);
 
+  // Immediate Backend → Frontend sync: SSE push after every 24h DB update (no polling)
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/api/agents/stream');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'agents-updated') fetchAgents();
+        } catch {}
+      };
+    } catch {}
+    // Fallback for Vercel serverless (SSE may timeout): refetch when tab becomes visible/focused
+    const onVisible = () => {
+      if (!document.hidden) fetchAgents();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', fetchAgents);
+    return () => {
+      try {
+        es?.close();
+      } catch {}
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', fetchAgents);
+    };
+  }, [fetchAgents]);
+
   // Handle hiring an agent
   const handleHireAgent = async (payload: {
     agentId: string;
@@ -262,7 +289,7 @@ export default function App() {
     setWalletPickerOpen(true);
   };
 
-  // Identity verification: user must confirm a free (0 gas) signature in their wallet
+  // Identity verification: user must confirm a free signature in their wallet
   const verifyWalletIdentity = useCallback(
     async (provider: Eip1193Provider, address: string) => {
       setIsVerifying(true);
@@ -285,14 +312,14 @@ export default function App() {
         }
         if (data.verified) {
           setWalletVerified(true);
-          notify('Identity verified — signature confirmed on BNB Chain (0 gas)', 'ok');
+          notify('Identity verified — signature confirmed on BNB Chain', 'ok');
         } else {
           setWalletVerified(false);
           notify(data?.error || 'Signature verification failed — please retry', 'err');
         }
       } catch (err: any) {
         if (err?.code === 4001 || String(err?.message || '').toLowerCase().includes('reject')) {
-          notify('Signature skipped — tap UNVERIFIED badge next to your address to sign (0 gas)', 'err');
+          notify('Signature skipped — tap UNVERIFIED badge next to your address to sign', 'err');
         } else {
           console.error('Identity verification failed:', err);
           notify(`Signature verification failed: ${String(err?.message || err).slice(0, 120)}`, 'err');
@@ -326,7 +353,7 @@ export default function App() {
         'ok'
       );
       // Next step automatically: request free signature confirmation in the wallet
-      notify('Now confirm the free signature in your wallet to verify identity (0 gas)', 'ok');
+      notify('Now confirm the free signature in your wallet to verify identity', 'ok');
       await verifyWalletIdentity(wallet.provider, address);
     } catch (err: any) {
       console.error('Wallet connect failed:', err);

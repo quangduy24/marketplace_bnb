@@ -14,7 +14,8 @@ const CATEGORY_QUERIES = {
   yield: ['yield farming', 'APY vault', 'harvest allocate capital'],
 };
 
-const MAX_PER_CATEGORY = 200;
+const MAX_PER_CATEGORY = Number(process.env.MAX_PER_CATEGORY ?? 200);
+const MAX_TOTAL_LATEST = Number(process.env.MAX_TOTAL_LATEST ?? 1000);
 
 export async function runSemanticSync() {
   console.log('[Worker Sync] Starting targeted semantic crawl (capped at 200/category)...');
@@ -51,28 +52,34 @@ export async function runSemanticSync() {
   return results;
 }
 
-export async function runIncrementalSync(maxPages = 3) {
-  console.log(`[Worker Sync] Running incremental sync for ${maxPages} pages...`);
+export async function runIncrementalSync(maxPages = 20) {
+  const effectiveMax = Math.min(maxPages, Math.ceil(MAX_TOTAL_LATEST / 50));
+  console.log(`[Worker Sync] Running incremental sync for ${effectiveMax} pages (latest ${MAX_TOTAL_LATEST})...`);
   let totalAdded = 0;
 
-  for (let page = 0; page < maxPages; page++) {
+  for (let page = 0; page < effectiveMax; page++) {
     const offset = page * 50;
     const batch = await fetchRecentAgents(56, 50, offset);
+    if (batch.length === 0) break;
 
     for (const raw of batch) {
-      // Recent-list endpoint is lean: only upsert fields it actually carries.
-      // Existing rows keep their active/reachable/hireable state (merged in store).
-      await store.upsertAgent({
-        chainId: raw.chain_id || 56,
-        agentId: raw.agent_id,
-        tokenId: raw.token_id ?? null,
-        owner: raw.owner_address ?? null,
-        name: raw.name ?? null,
-        description: raw.description ?? null,
-        imageUrl: raw.image_url ?? null,
-        supportedProtocols: raw.supported_protocols ?? [],
-        x402Supported: raw.x402_supported ?? false,
-      });
+      // Use filtered mapping where possible; lean endpoint lacks tags so apply classify fallback
+      // For 1000-latest we upsert via mapRawToAgent when tags are present, else lean merge
+      if ((raw as any).tags !== undefined) {
+        await store.upsertAgent(mapRawToAgent(raw as any));
+      } else {
+        await store.upsertAgent({
+          chainId: raw.chain_id || 56,
+          agentId: raw.agent_id,
+          tokenId: raw.token_id ?? null,
+          owner: raw.owner_address ?? null,
+          name: raw.name ?? null,
+          description: raw.description ?? null,
+          imageUrl: raw.image_url ?? null,
+          supportedProtocols: raw.supported_protocols ?? [],
+          x402Supported: raw.x402_supported ?? false,
+        });
+      }
       totalAdded++;
     }
 
@@ -80,4 +87,19 @@ export async function runIncrementalSync(maxPages = 3) {
   }
 
   return { totalAdded };
+}
+
+export async function runLatestSync() {
+  // Convenience for 24h cron: fetch 1000 latest, then classify + probe to ensure filtered
+  const inc = await runIncrementalSync(20);
+  // Classify to apply labels filtering logic (excludes uncategorized)
+  try {
+    const { runClassificationWorker } = await import('./classify.ts');
+    await runClassificationWorker();
+  } catch {}
+  try {
+    const { runProbeWorker } = await import('./probe.ts');
+    await runProbeWorker();
+  } catch {}
+  return inc;
 }

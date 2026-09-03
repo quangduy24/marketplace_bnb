@@ -51,8 +51,8 @@ export const LeftNav: React.FC<LeftNavProps> = ({ currentView, onNavigate }) => 
     },
     {
       view: 'history',
-      label: 'LOGBOOK',
-      sublabel: 'Verified Escrow',
+      label: 'HISTORY',
+      sublabel: 'On-Chain Records',
       icon: BookOpen,
       accentColor: '#A855F7',
     },
@@ -144,9 +144,6 @@ export const LeftNav: React.FC<LeftNavProps> = ({ currentView, onNavigate }) => 
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-[#6A6A6A] font-mono-tech truncate block mt-0.5 font-medium">
-                  {item.sublabel}
-                </span>
               </div>
             </button>
           );

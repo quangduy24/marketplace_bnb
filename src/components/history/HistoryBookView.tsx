@@ -39,7 +39,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                   LEDGER.03
                 </span>
                 <h2 className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-                  ON-CHAIN ESCROW CHRONICLES & LOGBOOK
+                  ON-CHAIN HISTORY
                 </h2>
               </div>
               <span className="font-mono-tech text-[10px] text-[#6A6A6A]">

@@ -10,6 +10,6 @@ export function buildVerificationMessage(wallet: string, chainId: number): strin
     `${AUTH_MESSAGE_PREFIX}` +
     `Wallet: ${wallet}\n` +
     `Chain: BNB Smart Chain (${chainId})\n` +
-    'This signature costs no gas and authorizes no transactions.'
+    'This signature authorizes no transactions.'
   );
 }

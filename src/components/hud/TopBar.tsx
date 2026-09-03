@@ -25,7 +25,7 @@ const LOCATION_NAMES: Record<AppView, { title: string; tag: string }> = {
   town: { title: 'Town Plaza', tag: 'ZONE.00' },
   marketplace: { title: 'Bazaar of 4 Stalls', tag: 'MKT.01' },
   agents: { title: 'Agent Sanctuary', tag: 'WORK.02' },
-  history: { title: 'On-Chain Ledger', tag: 'LOG.03' },
+  history: { title: 'History', tag: 'HIS.03' },
   profits: { title: 'Treasury & Profits', tag: 'FIN.04' },
   demo: { title: 'Automated Demo', tag: 'TEST.05' },
 };
@@ -164,7 +164,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             {walletVerified ? (
               <span
                 className="neo-badge bg-[#00F59B] text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech font-black border border-[#121212] hidden sm:flex items-center space-x-0.5"
-                title="Wallet identity verified via free signature (0 gas)"
+                title="Wallet identity verified via free signature"
               >
                 <BadgeCheck className="w-3 h-3" />
                 <span>VERIFIED</span>

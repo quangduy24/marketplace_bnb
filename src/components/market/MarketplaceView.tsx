@@ -33,8 +33,6 @@ interface StallMetadata {
   accent: string;
   accentBg: string;
   issueCode: string;
-  startingRate: string;
-  benefit: string;
   icon: string;
 }
 
@@ -43,12 +41,10 @@ const STALLS_CONFIG: StallMetadata[] = [
     id: 'health_factor',
     name: 'HEALTH FACTOR CITADEL',
     subtitle: 'Venus Loan Protection',
-    purpose: 'Autonomously monitors Venus loan collateral to prevent 8% - 15% liquidation seizure penalties.',
+    purpose: 'Autonomously monitors Venus loan collateral to prevent liquidation seizure penalties.',
     accent: '#FF4365',
     accentBg: '#FFF1F2',
     issueCode: 'RISK.03',
-    startingRate: '0.30 $U/hr',
-    benefit: 'Saves 8% - 15% liquidation loss',
     icon: '🛡️',
   },
   {
@@ -59,8 +55,6 @@ const STALLS_CONFIG: StallMetadata[] = [
     accent: '#00F59B',
     accentBg: '#ECFDF5',
     issueCode: 'APY.04',
-    startingRate: '0.20 $U/hr',
-    benefit: 'Compounds ~14.8% Net APY',
     icon: '💰',
   },
   {
@@ -71,8 +65,6 @@ const STALLS_CONFIG: StallMetadata[] = [
     accent: '#FF7828',
     accentBg: '#FFF7ED',
     issueCode: 'DEX.02',
-    startingRate: '0.45 $U/hr',
-    benefit: '+3.2x LP Fee APR share',
     icon: '📈',
   },
   {
@@ -83,8 +75,6 @@ const STALLS_CONFIG: StallMetadata[] = [
     accent: '#38BDF8',
     accentBg: '#F0F9FF',
     issueCode: 'SEC.01',
-    startingRate: '0.15 $U/hr',
-    benefit: 'P99 alert latency < 350ms',
     icon: '👁️',
   },
 ];
@@ -246,7 +236,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     </span>
                   </div>
                   <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
-                    Your Venus collateral is near liquidation penalty seizure (<strong>8% - 15% loss</strong>). Deploy <strong>Vulcan Guardian</strong> immediately to safeguard your loan.
+                    Your Venus collateral is near liquidation — immediate seizure risk. Deploy <strong>Vulcan Guardian</strong> immediately to safeguard your loan.
                   </p>
                 </div>
               </div>

@@ -8,8 +8,8 @@
   ],
   "crons": [
     {
-      "path": "/api/workers/sync?mode=incremental",
-      "schedule": "0 * * * *"
+      "path": "/api/workers/sync?mode=incremental&maxPages=20",
+      "schedule": "0 2 * * *"
     }
   ]
 }

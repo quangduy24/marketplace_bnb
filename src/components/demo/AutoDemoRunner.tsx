@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, FastForward, CheckCircle2, ShieldCheck, Sparkles, ExternalLink, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Play, Pause, RotateCcw, ExternalLink, Search, Filter, ArrowRight, Check, Zap } from 'lucide-react';
 import { getPixelSprite } from '../game/pixelAssets.ts';
 import { AppView } from '../../types.ts';
 
@@ -10,249 +11,345 @@ interface AutoDemoRunnerProps {
 interface DemoStep {
   startSec: number;
   endSec: number;
-  stage: string;
   title: string;
-  description: string;
-  visualHighlight: string;
-  targetView: AppView;
   badge: string;
+  targetView: AppView;
+  intro: string;
+  operations: string[];
 }
+
+const DEMO_DURATION = 90;
 
 const DEMO_TIMELINE: DemoStep[] = [
   {
     startSec: 0,
-    endSec: 20,
-    stage: 'PHASE 1: THE ECOSYSTEM CHALLENGE',
-    title: '300,000+ Dormant Agents on BSC',
-    description:
-      'Over 300,000 AI agents are inscribed on BNB Smart Chain via ERC-8004. Without an active marketplace and reachability probing, buyers face dead endpoints and empty registries.',
-    visualHighlight: 'Gray NPC streets dissolve as 5-second health probes activate the living agents.',
-    targetView: 'story',
-    badge: 'PROBLEM STATEMENT',
+    endSec: 17,
+    title: '1 — PLAZA • Town Map',
+    badge: 'PLAZA',
+    targetView: 'town',
+    intro: 'Plaza is the pixel town map — the central navigation hub. From here you see the full LANS overview and travel to any area.',
+    operations: [
+      'Move character (WASD / click) around the square',
+      'Hover each agent house to view status: ACTIVE / reachable / hireable',
+      'Click 4 stalls: Watchtower · Grid Workshop · Citadel · Greenhouse to filter Market',
+      'Click Market / Sanctuary gate to jump to the corresponding area',
+    ],
   },
   {
-    startSec: 20,
-    endSec: 45,
-    stage: 'PHASE 2: TWO-STAGE HYBRID RECOMMENDATION',
-    title: 'Bayesian Thompson Sampling & Heuristic Context',
-    description:
-      'Stage 1 strictly eliminates inactive & unreachable impostors. Stage 2 evaluates Venus Comptroller liquidity & PancakeSwap V3 ranges, combined with Marsaglia-Tsang Gamma Beta sampling.',
-    visualHighlight: 'Dynamic ranking scores re-order agents instantly according to urgent wallet defense needs.',
+    startSec: 17,
+    endSec: 37,
+    title: '2 — MARKET • Bazaar of Agents',
+    badge: 'MARKET',
     targetView: 'marketplace',
-    badge: 'RANKING ALGORITHM',
+    intro: 'Market lists real verified agents synced from on-chain. Every card uses live data: price, score, and rail X402/ERC-8183/A2A.',
+    operations: [
+      'Filter by tag: use 4 stalls or dropdown ALL / MONITORING / GRID / HEALTH_FACTOR / YIELD',
+      'Enable VERIFIED & HIREABLE ONLY to show only probed hireable agents',
+      'Search by name/description, view cards: price $U/hr (or —), ★ score, status ONLINE/UNVERIFIED',
+      'Select 2 agents → VIEW COMPARISON to compare hourly rate, endpoint, and win rate; click FULL SPEC to view tokenId/chain',
+      'Click HIRE → choose package Trial 2h / Standard 24h / Weekly 168h, select rail X402/ERC-8183, Confirm Hire (recorded as pending, awaiting funding)',
+    ],
   },
   {
-    startSec: 45,
-    endSec: 70,
-    stage: 'PHASE 3: EMERGENCY COLLATERAL OVERRIDE',
-    title: 'Venus Liquidation Warning & Stall Filtering',
-    description:
-      'When Health Factor dips below 1.15 or shortfall > 0, the engine triggers an Emergency Override (wH = 0.70), prioritizing Vulcan Safety Forge directly into the buyer attention field.',
-    visualHighlight: 'Red pulsating emergency risk banner on the Bazaar stall directing user to safety shield.',
-    targetView: 'marketplace',
-    badge: 'HEURISTIC OVERRIDE',
-  },
-  {
-    startSec: 70,
-    endSec: 95,
-    stage: 'PHASE 4: ERC-8183 ESCROW COMMERCE',
-    title: 'Trustless On-Chain Job Funding',
-    description:
-      'The buyer locks 15.00 $U into the ERC-8183 escrow contract on BSC Testnet. No central intermediaries, zero custody of private keys. Agent receives on-chain event signal.',
-    visualHighlight: 'Job funded on-chain: Tx 0x7a3e9c1f8d42b083e47915b4931a78e47c78096cba8714e82b7d2f4001c23f11',
+    startSec: 37,
+    endSec: 58,
+    title: '3 — SANCTUARY • Work Chambers',
+    badge: 'SANCTUARY',
     targetView: 'agents',
-    badge: 'ON-CHAIN ESCROW',
+    intro: 'Sanctuary is the 4-chamber workspace for your hired squad. Each hire is a separate chamber with live status.',
+    operations: [
+      'View Hired Squad on top — click slot to focus the corresponding chamber',
+      'Switch chambers: Monitoring / Grid / Health / Yield',
+      'Run job lifecycle: funded → click TRIGGER RUN → running → SUBMIT PROOF → submitted → RELEASE ESCROW → paid',
+      'Open JOB AUDIT to view agentId, budgetU, lastAction, and BscScan tx (or — pending on-chain tx)',
+    ],
   },
   {
-    startSec: 95,
-    endSec: 115,
-    stage: 'PHASE 5: LANS 4-CHAMBER EXECUTION',
-    title: 'Real-Time Machinery Animation & Proof Hash',
-    description:
-      'Agents in LANS run active animations strictly when an on-chain job is running. Upon loan defense payload execution, the agent posts proof hash and flags XONG! (DONE!).',
-    visualHighlight: 'Vulcan Forge hammer sparks fly; proof hash recorded to IPFS and BSC explorer.',
-    targetView: 'agents',
-    badge: 'WORK VERIFICATION',
+    startSec: 58,
+    endSec: 74,
+    title: '4 — LOGBOOK • Verified Escrow Ledger',
+    badge: 'LOGBOOK',
+    targetView: 'history',
+    intro: 'Logbook is the transparent escrow ledger: every hire, status, budget, and proof is stored on-chain.',
+    operations: [
+      'View escrow table: Agent / Discipline / Rail / Status / Deposit / BscScan Proof / Action',
+      'When no tx exists: shows — pending on-chain tx (no more fake hash 0x7a3e…)',
+      'When tx exists: click link to testnet.bscscan.com/tx/{hash} or bscscan.com/tx/{hash} per chainId',
+      'Click Action to refocus the chamber in Sanctuary',
+    ],
   },
   {
-    startSec: 115,
-    endSec: 130,
-    stage: 'PHASE 6: TREASURY VALUE VERIFICATION',
-    title: 'Immutable Proof & Net Portfolio Alpha',
-    description:
-      'The Historical Logbook records verified hashes. The Profits Ledger computes exact savings from current wallet records: $1,840 liquidation penalty avoided with $15 spent.',
-    visualHighlight: 'Net profit alpha +$1,825 $U verified across BSC Testnet & Mainnet.',
+    startSec: 74,
+    endSec: 90,
+    title: '5 — TREASURY • Net Yield & Alpha',
+    badge: 'TREASURY',
     targetView: 'profits',
-    badge: 'BENCHMARK PROOF',
+    intro: 'Treasury aggregates performance: only counts from real hires, showing Awaiting on-chain proof until proof exists.',
+    operations: [
+      'View 3 boxes: Total Expense (sum of budgetU), Value Defended (0 until proof), and Net Alpha',
+      'Each discipline card: when not hired → VACANT + VISIT BAZAAR STALL button; when hired → shows contracts count + spent on this',
+      'Click HIRE ANOTHER to return to Market and hire more — unlimited squad',
+    ],
   },
 ];
 
 export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) => {
   const [seconds, setSeconds] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [demoMarketFilter, setDemoMarketFilter] = useState('ALL');
+  const [demoSanctuaryState, setDemoSanctuaryState] = useState<'funded' | 'running' | 'submitted' | 'paid'>('funded');
 
   useEffect(() => {
-    let interval: any = null;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev >= 130) {
-            setIsPlaying(false);
-            return 130;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+    if (!isPlaying) return;
+    const t = setInterval(() => {
+      setSeconds((prev) => {
+        if (prev >= DEMO_DURATION) {
+          setIsPlaying(false);
+          return DEMO_DURATION;
+        }
+        return prev + 1;
+      });
+    }, 450);
+    return () => clearInterval(t);
   }, [isPlaying]);
 
-  const currentStep =
-    DEMO_TIMELINE.find((s) => seconds >= s.startSec && seconds < s.endSec) ||
-    DEMO_TIMELINE[DEMO_TIMELINE.length - 1];
+  // auto-cycle sanctuary demo state for visual effect (faster)
+  useEffect(() => {
+    if (!isPlaying) return;
+    const t = setInterval(() => {
+      setDemoSanctuaryState((s) => (s === 'funded' ? 'running' : s === 'running' ? 'submitted' : s === 'submitted' ? 'paid' : 'funded'));
+    }, 900);
+    return () => clearInterval(t);
+  }, [isPlaying]);
 
-  const handleSeek = (sec: number) => {
-    setSeconds(sec);
-  };
+  const currentStep = DEMO_TIMELINE.find((s) => seconds >= s.startSec && seconds < s.endSec) || DEMO_TIMELINE[DEMO_TIMELINE.length - 1];
+  const stepIndex = DEMO_TIMELINE.indexOf(currentStep);
+  const progressPercent = (seconds / DEMO_DURATION) * 100;
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  const progressPercent = (seconds / 130) * 100;
+  const mockAgents = [
+    { name: 'Aegis Sentinel', price: '0.42', score: '4.8', tag: 'MONITORING', color: '#38BDF8', sprite: 'monitoring' as const },
+    { name: 'Vulcan Forge', price: '0.30', score: '4.9', tag: 'HEALTH_FACTOR', color: '#FF4365', sprite: 'health_factor' as const },
+    { name: 'Yield Sprout', price: '0.18', score: '4.6', tag: 'YIELD', color: '#00F59B', sprite: 'yield' as const },
+  ];
 
   return (
-    <div className="w-full h-[calc(100vh-120px)] min-h-[550px] bg-[#F4F0EA] p-3 sm:p-5 flex flex-col justify-between select-none overflow-hidden editorial-grid">
-      {/* Top Controller Strip */}
+    <div className="w-full h-[calc(100vh-120px)] min-h-[680px] bg-[#F4F0EA] p-3 sm:p-5 flex flex-col justify-between select-none overflow-hidden editorial-grid">
       <div className="neo-card bg-[#FFFFFF] p-3 sm:p-4 neo-shadow-sm mb-3 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[#121212] pb-2.5 mb-2.5">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 bg-[#FF4365] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center font-bold">
-              <Activity className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 bg-[#121212] flex items-center justify-center">
+              <span className="text-[#FFE500] font-black text-xs">▶</span>
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">
-                  AUTO.DEMO
-                </span>
-                <span className="font-display font-black text-xs sm:text-sm text-[#121212] tracking-tight">
-                  JUDGE EVALUATION TIMELINE (0 - 130s)
-                </span>
+                <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">DEMO</span>
+                <span className="font-display font-black text-xs sm:text-sm text-[#121212]">Interactive Walkthrough — 5 Stages</span>
               </div>
-              <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-                Autonomously demonstrating all protocol flows without login walls
-              </span>
+              <span className="font-mono-tech text-[10px] text-[#6A6A6A]">Step {stepIndex + 1} / {DEMO_TIMELINE.length} · Click any visual to try the real action</span>
             </div>
           </div>
-
-          {/* Transport Controls */}
           <div className="flex items-center space-x-2 font-mono-tech text-xs">
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="neo-btn bg-[#121212] text-white px-3 py-1 font-bold flex items-center space-x-1"
-            >
+            <button onClick={() => setIsPlaying(!isPlaying)} className="neo-btn bg-[#121212] text-white px-3 py-1 font-bold flex items-center space-x-1">
               {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
             </button>
-
-            <button
-              onClick={() => {
-                setSeconds(0);
-                setIsPlaying(true);
-              }}
-              className="neo-btn bg-[#FAF7F0] text-[#121212] px-2 py-1 font-bold"
-            >
+            <button onClick={() => { setSeconds(0); setIsPlaying(true); }} className="neo-btn bg-[#FAF7F0] text-[#121212] px-2 py-1 font-bold border-2 border-[#121212]">
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
-
-            <span className="font-bold min-w-[70px] text-right text-[#121212]">
-              {Math.floor(seconds / 60)}:{(seconds % 60).toString().padStart(2, '0')} / 2:10
-            </span>
+            <span className="font-bold min-w-[78px] text-right">{formatTime(seconds)} / {formatTime(DEMO_DURATION)}</span>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-[#FAF7F0] border-2 border-[#121212] h-3.5 relative cursor-pointer overflow-hidden mb-2.5">
-          <div
-            className="bg-[#FFE500] h-full border-r-2 border-[#121212] transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
+        <div className="w-full bg-[#FAF7F0] border-2 border-[#121212] h-3 relative cursor-pointer overflow-hidden" onClick={(e) => {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          setSeconds(Math.floor(((e.clientX - rect.left) / rect.width) * DEMO_DURATION));
+        }}>
+          <motion.div className="bg-[#FFE500] h-full border-r-2 border-[#121212]" animate={{ width: `${progressPercent}%` }} transition={{ duration: 0.3 }} />
         </div>
-
-        {/* 6 Phase Markers */}
-        <div className="grid grid-cols-6 gap-1.5 text-center font-mono-tech text-[9px]">
-          {DEMO_TIMELINE.map((step, idx) => {
-            const isActive = seconds >= step.startSec && seconds < step.endSec;
-            return (
-              <button
-                key={idx}
-                onClick={() => handleSeek(step.startSec)}
-                className={`p-1.5 border-2 text-left truncate transition-all neo-btn ${
-                  isActive
-                    ? 'bg-[#121212] text-white font-bold'
-                    : 'bg-[#FAF7F0] text-[#6A6A6A] hover:bg-[#FFE500] hover:text-[#121212]'
-                }`}
-              >
-                P{idx + 1}: {step.startSec}s
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-center gap-1.5 mt-2">
+          {DEMO_TIMELINE.map((s, idx) => (
+            <button key={s.badge} onClick={() => setSeconds(s.startSec)} className={`h-1.5 rounded-full transition-all border border-[#121212] ${stepIndex === idx ? 'w-8 bg-[#121212]' : 'w-3 bg-white'}`} title={s.title} />
+          ))}
         </div>
       </div>
 
-      {/* Main Showcase Card */}
-      <div className="flex-1 neo-card bg-[#FFFFFF] p-4 sm:p-6 neo-shadow-lg flex flex-col justify-between overflow-y-auto relative">
-        <div>
-          <div className="flex items-center justify-between border-b-2 border-[#121212] pb-3 mb-4">
-            <div>
-              <span className="neo-badge bg-[#FAF7F0] text-[#6A6A6A] text-[9px] px-1.5 py-0.2 uppercase font-mono-tech">
-                {currentStep.stage}
-              </span>
-              <h3 className="font-display font-black text-base sm:text-lg text-[#121212] mt-1.5 tracking-tight">
-                {currentStep.title}
-              </h3>
-            </div>
-            <span className="neo-badge bg-[#FFE500] text-[#121212] text-[10px] px-2 py-0.5 font-bold">
-              {currentStep.badge}
-            </span>
+      <div className="flex-1 neo-card bg-[#FFFFFF] p-4 sm:p-5 neo-shadow-lg flex flex-col overflow-y-auto relative">
+        <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ backgroundImage: `radial-gradient(#121212 1px, transparent 1px)`, backgroundSize: '14px 14px' }} />
+
+        <div className="relative z-10 flex-1 flex flex-col">
+          <div className="flex items-center justify-between border-b-2 border-[#121212] pb-3 mb-3 gap-2">
+            <h3 className="font-display font-black text-base sm:text-lg text-[#121212]">{currentStep.title}</h3>
+            <span className="neo-badge bg-[#FFE500] text-[#121212] text-[10px] px-2 py-0.5 font-bold shrink-0">{currentStep.badge}</span>
+          </div>
+          <p className="font-sans text-[13px] text-[#2A2A2A] leading-relaxed max-w-2xl">{currentStep.intro}</p>
+
+          {/* VISUAL STAGE - image/animation + live actions - ultra large to fill space */}
+          <div className="mt-6 flex-1 flex items-center justify-center min-h-[520px]">
+            <AnimatePresence mode="wait">
+              {stepIndex === 0 && (
+                <motion.div key="plaza-vis" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-xl">
+                  <div className="grid grid-cols-2 gap-6">
+                    {[
+                      { id: 'health_factor', label: 'Vulcan Citadel', accent: '#FF4365', sprite: 'health_factor' as const, pos: '2,3' },
+                      { id: 'yield', label: 'Greenhouse', accent: '#00F59B', sprite: 'yield' as const, pos: '1,4' },
+                      { id: 'monitoring', label: 'Watchtower', accent: '#38BDF8', sprite: 'monitoring' as const, pos: '3,1' },
+                      { id: 'grid', label: 'Grid Workshop', accent: '#FF8C00', sprite: 'grid' as const, pos: '4,2' },
+                    ].map((h, i) => (
+                      <motion.button key={h.id} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.08 }} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => onNavigate('marketplace')} className="neo-card p-6 border-2 border-[#121212] bg-[#FAF7F0] text-left group">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="w-3 h-3 rounded-full bg-[#00F59B] border border-[#121212] animate-pulse" />
+                          <span className="font-mono-tech text-[9px] text-[#6A6A6A]">{h.pos}</span>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-24 h-24 bg-white border-2 border-[#121212] flex items-center justify-center">
+                            <img src={getPixelSprite(h.sprite)} alt={h.label} className="w-20 h-20 object-contain" />
+                          </div>
+                            <div>
+                            <div className="font-display font-black text-base leading-none">{h.label}</div>
+                            <div className="w-10 h-1.5 mt-1.5" style={{ background: h.accent }} />
+                          </div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-center justify-center space-x-2">
+                    <motion.div animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-6 h-6 bg-[#121212] flex items-center justify-center"><span className="text-[#FFE500] text-xs">●</span></motion.div>
+                    <span className="font-mono-tech text-xs text-[#6A6A6A]">WASD / Click to move — Hover houses — Click any stall above ☝️</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {stepIndex === 1 && (
+                <motion.div key="market-vis" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="w-full max-w-2xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex-1 flex items-center space-x-2 bg-white border-2 border-[#121212] px-2 py-1.5">
+                      <Search className="w-3.5 h-3.5 text-[#6A6A6A]" />
+                      <span className="font-mono-tech text-xs text-[#6A6A6A]">Search agents…</span>
+                      <span className="ml-auto w-2 h-3 bg-[#121212] animate-pulse" />
+                    </div>
+                    <span className="neo-badge bg-[#00F59B] text-[#121212] text-[9px] px-2 py-1 font-bold">LIVE</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {['ALL','MONITORING','GRID','HEALTH_FACTOR','YIELD'].map(f => (
+                      <button key={f} onClick={() => setDemoMarketFilter(f)} className={`px-2 py-1 text-[9px] font-mono-tech font-bold border-2 border-[#121212] neo-btn ${demoMarketFilter===f ? 'bg-[#121212] text-white' : 'bg-white text-[#121212] hover:bg-[#FFE500]'}`}>{f}</button>
+                    ))}
+                    <button className="ml-auto flex items-center space-x-1 neo-badge bg-[#FAF7F0] border border-[#121212] text-[9px] px-2 py-1"><Filter className="w-3 h-3" /><span>VERIFIED ONLY</span></button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-5">
+                    {mockAgents.slice(0,3).map((a,i) => (
+                      <motion.div key={a.name} initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i*0.08 }} whileHover={{ y: -2 }} className="neo-card bg-white border-2 border-[#121212] p-5">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <img src={getPixelSprite(a.sprite)} alt={a.tag} className="w-16 h-16 object-contain" />
+                          <span className="neo-badge text-[8px] px-1.5 py-0.5 font-bold text-white" style={{ background: a.color }}>{a.tag}</span>
+                        </div>
+                        <div className="font-display font-bold text-xs leading-none truncate">{a.name}</div>
+                        <div className="font-mono-tech text-[10px] font-black">{a.price} $U/hr · ★ {a.score}</div>
+                        <div className="mt-1 flex gap-1">
+                          <button onClick={() => onNavigate('marketplace')} className="flex-1 bg-[#FFE500] border border-[#121212] text-[8px] font-bold py-0.5">COMPARE</button>
+                          <button onClick={() => onNavigate('marketplace')} className="flex-1 bg-[#00F59B] border border-[#121212] text-[8px] font-bold py-0.5">HIRE</button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-center font-mono-tech text-[10px] text-[#2563EB]">↑ Try: click a filter or HIRE to open the real Market · lans.work/market</div>
+                </motion.div>
+              )}
+
+              {stepIndex === 2 && (
+                <motion.div key="sanc-vis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-md flex flex-col items-center">
+                  <div className="grid grid-cols-4 gap-4 w-full mb-5">
+                    {(['monitoring','grid','health_factor','yield'] as const).map(k => (
+                      <div key={k} className="neo-card bg-[#FAF7F0] border-2 border-[#121212] p-5 text-center">
+                        <div className="w-3.5 h-3.5 rounded-full bg-[#00F59B] border border-[#121212] mx-auto animate-pulse mb-2" />
+                        <img src={getPixelSprite(k)} alt={k} className="w-16 h-16 mx-auto object-contain" />
+                      </div>
+                    ))}
+                  </div>
+                  <motion.div key={demoSanctuaryState} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full neo-card bg-[#FAF7F0] border-2 border-[#121212] p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-display font-black text-xs">Chamber #2 — Vulcan</span>
+                      <span className={`neo-badge text-[9px] px-2 py-0.5 font-bold border border-[#121212] ${demoSanctuaryState==='paid' ? 'bg-[#00F59B]' : demoSanctuaryState==='submitted' ? 'bg-[#FFE500]' : demoSanctuaryState==='running' ? 'bg-[#38BDF8] text-white' : 'bg-[#121212] text-white'}`}>{demoSanctuaryState.toUpperCase()}</span>
+                    </div>
+                    <div className="h-1 bg-white border border-[#121212] mb-2">
+                      <motion.div className="h-full bg-[#00F59B]" animate={{ width: demoSanctuaryState==='funded'?'25%':demoSanctuaryState==='running'?'50%':demoSanctuaryState==='submitted'?'75%':'100%' }} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      <button onClick={() => setDemoSanctuaryState('running')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='running'?'bg-[#38BDF8] text-white':'bg-white'}`}>TRIGGER RUN</button>
+                      <button onClick={() => setDemoSanctuaryState('submitted')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='submitted'?'bg-[#FFE500]':'bg-white'}`}>SUBMIT PROOF</button>
+                      <button onClick={() => setDemoSanctuaryState('paid')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='paid'?'bg-[#00F59B]':'bg-white'}`}>RELEASE</button>
+                    </div>
+                  </motion.div>
+                  <span className="font-mono-tech text-[10px] text-[#6A6A6A] mt-2">Click the buttons above — then GO TO /agents</span>
+                </motion.div>
+              )}
+
+              {stepIndex === 3 && (
+                <motion.div key="log-vis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md">
+                  <div className="neo-card bg-white border-2 border-[#121212] overflow-hidden">
+                    <div className="bg-[#121212] text-white font-mono-tech text-[9px] flex px-2 py-1">
+                      <span className="flex-1">Agent</span><span className="w-16">Status</span><span className="w-20 text-[#FFE500]">Proof</span>
+                    </div>
+                    {[
+                      { name: 'Vulcan Forge', status: 'paid', tx: '0x7a3e…c23f' },
+                      { name: 'Aegis Sentinel', status: 'submitted', tx: '0x9b12…8a01' },
+                      { name: 'Yield Sprout', status: 'funded', tx: '— pending' },
+                    ].map(row => (
+                      <div key={row.name} className="flex items-center px-2 py-1.5 border-b border-[#E5E0D5] font-mono-tech text-[10px]">
+                        <span className="flex-1 font-bold truncate">{row.name}</span>
+                        <span className={`w-16 neo-badge text-[8px] px-1 py-0.5 text-center ${row.status==='paid'?'bg-[#00F59B]':row.status==='submitted'?'bg-[#FFE500]':'bg-white border border-[#121212]'}`}>{row.status.toUpperCase()}</span>
+                        <span className={`w-20 truncate ${row.tx.includes('0x')?'text-[#2563EB] underline cursor-pointer':'text-[#A0A0A0]'}`}>{row.tx}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-center">
+                    <span className="font-mono-tech text-[10px] text-[#6A6A6A]">Click a blue Tx to open BscScan · lans.work/history</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {stepIndex === 4 && (
+                <motion.div key="treas-vis" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full max-w-sm">
+                  <div className="grid grid-cols-3 gap-4 w-full">
+                    <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#FAF7F0] border-2 border-[#121212] p-5 text-center">
+                      <div className="font-mono-tech text-[9px] text-[#6A6A6A]">SPENT</div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="font-display font-black text-2xl">$12.40</motion.div>
+                    </motion.div>
+                    <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }} className="bg-[#00F59B] border-2 border-[#121212] p-5 text-center">
+                      <div className="font-mono-tech text-[9px]">SAVED</div>
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="font-display font-black text-2xl">$42.00</motion.div>
+                    </motion.div>
+                    <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="bg-[#FFE500] border-2 border-[#121212] p-5 text-center">
+                      <div className="font-mono-tech text-[9px]">NET ALPHA</div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="font-display font-black text-2xl text-[#00F59B]">+$29.60</motion.div>
+                    </motion.div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <span className="neo-badge bg-white border border-[#121212] text-[9px] px-2 py-1">2 contracts active</span>
+                    <span className="neo-badge bg-[#121212] text-white text-[9px] px-2 py-1">HIRE ANOTHER →</span>
+                  </div>
+                  <span className="font-mono-tech text-[10px] text-[#6A6A6A] mt-2">lans.work/treasury</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <p className="font-sans text-sm sm:text-base text-[#3A3A3A] leading-relaxed max-w-3xl">
-            {currentStep.description}
-          </p>
-
-          <div className="my-4 p-3 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm flex items-center space-x-3">
-            <Sparkles className="w-5 h-5 text-[#2563EB] shrink-0 animate-pulse" />
-            <div className="font-mono-tech text-xs text-[#121212]">
-              <strong className="text-[#2563EB]">Live Telemetry:</strong> {currentStep.visualHighlight}
-            </div>
-          </div>
+          <ul className="mt-4 space-y-1.5">
+            {currentStep.operations.map((op, i) => (
+              <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex items-start space-x-2 font-mono-tech text-xs text-[#121212] bg-[#FAF7F0] border border-[#121212] px-2.5 py-1.5 cursor-pointer hover:bg-[#FFE500] transition-colors" onClick={() => onNavigate(currentStep.targetView)}>
+                <span className="mt-0.5 w-1.5 h-1.5 bg-[#00F59B] border border-[#121212] shrink-0" />
+                <span className="flex-1">{op}</span>
+                <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-[#6A6A6A]" />
+              </motion.li>
+            ))}
+          </ul>
         </div>
 
-        {/* Footer Navigation Jump */}
-        <div className="border-t-2 border-[#121212] pt-3.5 mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#FAF7F0] border-2 border-[#121212] flex items-center justify-center">
-              <img
-                src={getPixelSprite(
-                  seconds < 45 ? 'monitoring' : seconds < 90 ? 'health_factor' : 'yield'
-                )}
-                alt="demo sprite"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = getPixelSprite('monitoring', 'idle');
-                }}
-                className="w-8 h-8 object-contain"
-              />
-            </div>
-            <span className="font-mono-tech text-xs text-[#6A6A6A]">
-              Jump directly to the interactive live page for this phase.
-            </span>
-          </div>
-
-          <button
-            onClick={() => onNavigate(currentStep.targetView)}
-            className="w-full sm:w-auto neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-xs px-5 py-2 flex items-center justify-center space-x-2"
-          >
-            <span>JUMP TO {currentStep.targetView.toUpperCase()} VIEW</span>
+        <div className="border-t-2 border-[#121212] pt-3 mt-4 flex justify-center relative z-10">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onNavigate(currentStep.targetView)} className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-xs px-6 py-2.5 flex items-center space-x-2">
+            <span>OPEN {currentStep.targetView.toUpperCase()} LIVE</span>
             <ExternalLink className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
       </div>
     </div>
