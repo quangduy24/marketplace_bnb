@@ -81,7 +81,7 @@ const STORY_BEATS: BeatData[] = [
     title: 'ESCROW-PROTECTED HIRING',
     speaker: 'Escrow',
     dialogue:
-      'No custodians. No platform token. A quote (/api/hires/prepare) locks budget and deadline; you connect via EIP-6963 (MetaMask/Binance/Trust), then personal_sign a free message — "LANS… This signature costs no gas" — verified on BNB Chain. Escrow is ERC-8183 or x402; funds move only on proof.',
+      'No custodians. No platform token. A quote (/api/hires/prepare) locks budget and deadline; you connect via EIP-6963 (MetaMask/Binance/Trust), then personal_sign a message to verify your wallet — verified on BNB Chain. Escrow is ERC-8183 or x402; funds move only on proof.',
     subtext: 'Payment moves buyer → agent, paused in escrow until a proof hash lands.',
     accent: '#A855F7',
   },
@@ -257,7 +257,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             >
               <motion.div initial={{ scale: 0.9, y: 6 }} animate={{ scale: 1, y: 0 }} transition={{ duration: 0.7, ease: 'easeOut' }} className="neo-badge bg-[#121212] text-[#FFE500] text-xs px-4 py-1.5 font-mono-tech flex items-center space-x-2 border border-[#FFE500]">
                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}><Database className="w-3.5 h-3.5" /></motion.div>
-                <span>{liveStats ? `${liveStats.active} ACTIVE / 300,011 REGISTERED` : 'LOADING LIVE STATS...'}</span>
+                <span>{liveStats ? `${liveStats.active} ACTIVE · LIVE REGISTRY` : 'LOADING LIVE STATS...'}</span>
                 <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity }} className="w-1.5 h-1.5 bg-[#00F59B] rounded-full" />
               </motion.div>
               <div className="flex items-end space-x-4 sm:space-x-8">
@@ -268,7 +268,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                   { sprite: 'npc_grey', delay: 0.3, x: 10 },
                 ].map((p, i) => (
                   <motion.div key={i} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: p.delay, type: 'spring', stiffness: 120 }} className="relative">
-                    <motion.img animate={{ y: [0, -3, 0] }} transition={{ duration: 1.6 + i * 0.2, repeat: Infinity, ease: 'easeInOut' }} src={getPixelSprite(p.sprite)} alt="Grey NPC" referrerPolicy="no-referrer" className="w-16 h-16 sm:w-20 sm:h-20 object-contain filter grayscale opacity-60" style={{ transform: `translateX(${p.x}px)` }} />
+                    <motion.img animate={{ y: [0, -3, 0] }} transition={{ duration: 1.6 + i * 0.2, repeat: Infinity, ease: 'easeInOut' }} src={getPixelSprite(p.sprite)} alt="Inactive agent" referrerPolicy="no-referrer" className="w-16 h-16 sm:w-20 sm:h-20 object-contain filter grayscale opacity-60" style={{ transform: `translateX(${p.x}px)` }} />
                     <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }} className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black/20 rounded-full blur-[2px]" />
                     <motion.span animate={{ opacity: [0, 1, 0], y: [0, -8, -12] }} transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.4, repeatDelay: 1 }} className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-mono-tech text-[#6A6A6A]">zZ</motion.span>
                   </motion.div>
@@ -296,7 +296,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
               </motion.div>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex -space-x-2">
                 {[0,1,2].map(i => (
-                  <motion.img key={i} initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 0.4, y: 0 }} transition={{ delay: 0.5 + i*0.1 }} src={getPixelSprite('npc_grey')} alt="ghost" className="w-10 h-10 object-contain filter grayscale opacity-40" />
+                  <motion.img key={i} initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 0.4, y: 0 }} transition={{ delay: 0.5 + i*0.1 }} src={getPixelSprite('npc_grey')} alt="Inactive agent" className="w-10 h-10 object-contain filter grayscale opacity-40" />
                 ))}
               </motion.div>
               <div className="flex gap-2">
@@ -351,23 +351,23 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             >
               <motion.div animate={{ scale: [1, 1.02, 1], boxShadow: ['0 0 0px rgba(0,245,155,0)', '0 0 12px rgba(0,245,155,0.4)', '0 0 0px rgba(0,245,155,0)'] }} transition={{ duration: 1.2, repeat: Infinity }} className="neo-badge bg-[#00F59B] text-[#121212] text-xs px-4 py-1.5 font-mono-tech font-bold flex items-center space-x-2 cursor-pointer border-2 border-[#121212]" onClick={triggerProbeDemo}>
                 <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }}><Activity className="w-3.5 h-3.5" /></motion.div>
-                <span>5-SECOND PROBE — {`{agentId}`} → tokenId · {probeState === 'probing' ? 'PROBING...' : probeState === 'done' ? '61 VERIFIED ✓' : 'TAP TO PROBE'}</span>
+                <span>LIVE PROBE — {`{agentId}`} → tokenId · {probeState === 'probing' ? 'VERIFYING...' : probeState === 'done' ? '61 VERIFIED ✓' : 'TAP TO VERIFY'}</span>
               </motion.div>
               <div className="flex items-center space-x-4 sm:space-x-6">
-                {['monitoring', 'grid', 'health_factor', 'yield'].map((cls, i) => (
+                {['rebalancing', 'grid', 'health_factor', 'yield'].map((cls, i) => (
                   <motion.div key={cls} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.1, type: 'spring' }} whileHover={{ y: -3, scale: 1.05 }} className="flex flex-col items-center cursor-pointer" onClick={triggerProbeDemo}>
                     <motion.span animate={probeState === 'probing' ? { scale: [1, 1.6, 1], opacity: [1, 0.6, 1] } : probeState === 'done' ? { scale: 1 } : {}} transition={{ duration: 0.6, repeat: probeState === 'probing' ? Infinity : 0 }} className={`w-3 h-3 rounded-full border-2 border-[#121212] mb-2 ${probeState === 'done' ? 'bg-[#00F59B]' : probeState === 'probing' ? 'bg-[#FFE500]' : 'bg-[#A0A0A0]'}`} />
                     <motion.div whileHover={{ rotate: 3 }} className="w-14 h-14 sm:w-16 sm:h-16 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center relative overflow-hidden">
                       <motion.div animate={probeState === 'probing' ? { x: ['-100%', '200%'] } : {}} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00F59B]/30 to-transparent" style={{ transform: 'skewX(-20deg)' }} />
                       <img src={getPixelSprite(cls as any, probeState === 'done' ? 'working' : 'idle')} alt={cls} referrerPolicy="no-referrer" className="w-10 h-10 sm:w-12 sm:h-12 object-contain relative z-10" />
                     </motion.div>
-                    <motion.span animate={probeState === 'done' ? { scale: [1, 1.1, 1] } : {}} transition={{ delay: i * 0.08 }} className={`neo-badge text-[8px] font-mono-tech mt-1.5 px-1.5 py-0.5 font-bold border border-[#121212] ${probeState === 'done' ? 'bg-[#121212] text-[#00F59B]' : 'bg-[#E5E0D5] text-[#6A6A6A]'}`}>{probeState === 'done' ? 'HIREABLE' : 'STANDBY'}</motion.span>
+                    <motion.span animate={probeState === 'done' ? { scale: [1, 1.1, 1] } : {}} transition={{ delay: i * 0.08 }} className={`neo-badge text-[8px] font-mono-tech mt-1.5 px-1.5 py-0.5 font-bold border border-[#121212] ${probeState === 'done' ? 'bg-[#121212] text-[#00F59B]' : 'bg-[#E5E0D5] text-[#6A6A6A]'}`}>{probeState === 'done' ? 'HIREABLE' : 'INACTIVE'}</motion.span>
                   </motion.div>
                 ))}
               </div>
               <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.6, duration: 0.8 }} className="font-mono-tech text-[11px] bg-[#121212] text-[#00F59B] px-3 py-1 border-2 border-[#121212] flex items-center space-x-2">
                 <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.5, repeat: Infinity }} className="w-1.5 h-1.5 bg-[#00F59B] rounded-full" />
-                <span>{probeState === 'done' ? '61 reachable · 44 verified-only · LIVE' : probeState === 'probing' ? 'Probing 4 endpoints... <500 = alive' : '15 → 61 reachable after template fix'}</span>
+                <span>{probeState === 'done' ? '61 reachable · 44 hireable · LIVE' : probeState === 'probing' ? 'Verifying 4 endpoints... response <500ms = alive' : '15 → 61 reachable after verification'}</span>
               </motion.div>
             </motion.div>
           )}
@@ -474,7 +474,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                 </motion.button>
               </div>
               <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.6 }} className="font-mono-tech text-xs text-[#2563EB] bg-[#F0F9FF] px-3 py-1.5 border-2 border-[#121212] font-bold text-center w-full">
-                <motion.span animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: Infinity }}>LANS “...costs no gas” → verifyMessage() → ✓ VERIFIED</motion.span>
+                <motion.span animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: Infinity }}>personal_sign → verifyMessage() → ✓ VERIFIED</motion.span>
               </motion.div>
             </motion.div>
           )}
