@@ -51,7 +51,8 @@ export const CompareModal: React.FC<CompareModalProps> = ({
         {/* Comparison Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[agent1, agent2].map((agent, idx) => {
-            const career = (agent.labels?.[0] || 'monitoring') as any;
+            const rawCareer = (agent.labels?.[0] || 'rebalancing') as string;
+            const career = (rawCareer === 'monitoring' ? 'rebalancing' : rawCareer) as any;
             const spriteSrc = getPixelSprite(career);
             const raw = (agent.rawJson || {}) as any;
             const hasRate = Number.isFinite(Number(raw.hourlyCostU)) && Number(raw.hourlyCostU) > 0;

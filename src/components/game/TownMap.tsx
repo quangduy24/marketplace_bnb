@@ -34,7 +34,7 @@ interface BuildingTarget {
   accentColor: string;
   code: string;
   badgeText: string;
-  spriteName: 'monitoring' | 'health_factor' | 'grid' | 'yield' | 'player' | 'npc_grey';
+  spriteName: 'rebalancing' | 'health_factor' | 'grid' | 'yield' | 'player' | 'npc_grey';
   tags: string[];
 }
 
@@ -42,63 +42,63 @@ interface BuildingTarget {
 const BUILDINGS: BuildingTarget[] = [
   {
     id: 'market',
-    name: 'CENTRAL BAZAAR',
-    quarterName: 'NORTHWEST SECTOR // COMMERCE',
-    subtext: '4 Stalls of Autonomous Agents',
+    name: 'Marketplace',
+    quarterName: 'Browse agents by category',
+    subtext: '4 categories of verified agents',
     view: 'marketplace',
     x: 24,
     y: 26,
     icon: ShoppingBag,
     accentColor: '#FFE500',
-    code: 'HUB.01',
-    badgeText: '4 STALLS ACTIVE',
-    spriteName: 'monitoring',
-    tags: ['ERC-8004 Directory', 'Thompson Sampling'],
+    code: 'MARKET',
+    badgeText: '4 CATEGORIES',
+    spriteName: 'rebalancing',
+    tags: ['Verified agents', 'Live ranking'],
   },
   {
     id: 'house',
-    name: 'LANS SANCTUARY',
-    quarterName: 'NORTHEAST SECTOR // OPERATIONS',
-    subtext: '4 Autonomous Work Chambers',
+    name: 'My Agents',
+    quarterName: 'Track your active agents',
+    subtext: 'Active agents by category',
     view: 'agents',
     x: 76,
     y: 26,
     icon: ShieldCheck,
     accentColor: '#38BDF8',
-    code: 'HUB.02',
-    badgeText: 'MACHINERY LIVE',
+    code: 'AGENTS',
+    badgeText: 'LIVE STATUS',
     spriteName: 'health_factor',
-    tags: ['Venus Collateral', 'Radar Mempool'],
+    tags: ['Health factor', 'Job status'],
   },
   {
     id: 'history',
-    name: 'SCRIBE ARCHIVES',
-    quarterName: 'SOUTHWEST SECTOR // AUDIT',
-    subtext: 'On-Chain Proof & Job History',
+    name: 'History',
+    quarterName: 'Transaction history',
+    subtext: 'On-chain records & proofs',
     view: 'history',
     x: 24,
     y: 74,
     icon: BookOpen,
     accentColor: '#A855F7',
-    code: 'HUB.03',
-    badgeText: 'IMMUTABLE LOGS',
+    code: 'HISTORY',
+    badgeText: 'ON-CHAIN LOGS',
     spriteName: 'grid',
-    tags: ['ERC-8183 Proofs', 'BscScan Ledger'],
+    tags: ['Escrow records', 'Explorer proofs'],
   },
   {
     id: 'profits',
-    name: 'WINDMILL TREASURY',
-    quarterName: 'SOUTHEAST SECTOR // TREASURY',
-    subtext: 'Net Yield & Alpha Dashboard',
+    name: 'Performance',
+    quarterName: 'Portfolio performance',
+    subtext: 'Cost vs value dashboard',
     view: 'profits',
     x: 76,
     y: 74,
     icon: TrendingUp,
     accentColor: '#00F59B',
-    code: 'HUB.04',
-    badgeText: 'LIVE TREASURY',
+    code: 'RESULTS',
+    badgeText: 'LIVE RESULTS',
     spriteName: 'yield',
-    tags: ['Liquidation Shield', 'Compounding APY'],
+    tags: ['Losses avoided', 'Yield earned'],
   },
 ];
 
@@ -211,17 +211,14 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
           <div>
             <div className="flex items-center space-x-2 flex-wrap">
               <span className="neo-badge bg-[#121212] text-[#FFE500] text-[9px] px-1.5 py-0.2 font-mono-tech">
-                ZONE.00
+                HOME
               </span>
               <span className="font-display font-black text-xs sm:text-sm text-[#121212] tracking-tight">
-                TACTICAL BAZAAR PLAZA // 4-QUADRANT CITADEL
-              </span>
-              <span className="hidden md:inline-block neo-badge bg-[#FAF7F0] text-[#121212] text-[9px] px-1.5 py-0.2">
-                BALANCED MAP
+                Home — Overview
               </span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-              Interactive Town Plaza: WASD / Arrow keys or click to walk • Symmetrical 4-Hub Citadel
+              Click a card to open, or move with WASD / arrow keys
             </span>
           </div>
         </div>
@@ -229,7 +226,7 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
         {/* Quick Travel Shortcut Pills */}
         <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 font-mono-tech text-xs">
           <span className="text-[10px] font-bold text-[#8A8A8A] uppercase hidden lg:inline mr-1">
-            DIRECT JUMP:
+            GO TO:
           </span>
           {BUILDINGS.map((b) => (
             <button
@@ -242,7 +239,7 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
             </button>
           ))}
           <span className="neo-badge bg-[#00F59B] text-[#121212] text-[10px] px-2 py-0.5 font-bold ml-1 shrink-0">
-            ACTIVE JOBS: {activeJobsCount}
+            Active jobs: {activeJobsCount}
           </span>
         </div>
       </div>
@@ -279,40 +276,40 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
         {/* Cardinal Main Avenues (Crosshairs) */}
         <div className="absolute top-[48%] left-0 right-0 h-10 bg-[#EDE5D6] border-y-2 border-[#121212]/20 pointer-events-none flex items-center justify-between px-4">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold tracking-widest pointer-events-none">
-            WEST GATE // ARCHIVE PROMENADE
+            History
           </span>
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold tracking-widest pointer-events-none">
-            EAST GATE // TREASURY AVENUE
+            Performance
           </span>
         </div>
         <div className="absolute left-[48%] top-0 bottom-0 w-10 bg-[#EDE5D6] border-x-2 border-[#121212]/20 pointer-events-none flex flex-col items-center justify-between py-4">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold tracking-widest pointer-events-none [writing-mode:vertical-lr] rotate-180">
-            NORTH // COMMERCE BOULEVARD
+            Marketplace
           </span>
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold tracking-widest pointer-events-none [writing-mode:vertical-lr]">
-            SOUTH // SOVEREIGN GATE
+            My Agents
           </span>
         </div>
 
         {/* Architectural Quadrant Sector Labels */}
         <div className="absolute top-2 left-3 pointer-events-none">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold uppercase tracking-wider">
-            [+] NW SECTOR // BAZAAR MARKET STALLS
+            Marketplace
           </span>
         </div>
         <div className="absolute top-2 right-3 text-right pointer-events-none">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold uppercase tracking-wider">
-            NE SECTOR // WORK SANCTUARY [+]
+            My Agents
           </span>
         </div>
         <div className="absolute bottom-2 left-3 pointer-events-none">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold uppercase tracking-wider">
-            [+] SW SECTOR // SCRIBE ARCHIVES
+            History
           </span>
         </div>
         <div className="absolute bottom-2 right-3 text-right pointer-events-none">
           <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold uppercase tracking-wider">
-            SE SECTOR // TREASURY RESERVES [+]
+            Performance
           </span>
         </div>
 
@@ -340,10 +337,10 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
                 <Sparkles className="w-3 h-3 text-[#121212] animate-spin" style={{ animationDuration: '6s' }} />
               </div>
               <span className="font-mono-tech text-[8px] font-black text-[#121212] uppercase leading-none">
-                LANS NEXUS
+                LANS
               </span>
               <span className="font-mono-tech text-[7px] text-[#6A6A6A] leading-none mt-0.5">
-                BNB 0x8004
+                BNB Chain
               </span>
             </div>
           </div>
@@ -396,7 +393,7 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
                     </span>
                   </div>
                   <span className="font-mono-tech text-[9px] text-[#121212] font-black uppercase flex items-center space-x-0.5 group">
-                    <span>ENTER</span>
+                    <span>Open</span>
                     <ArrowRight className="w-3 h-3" />
                   </span>
                 </div>
@@ -447,14 +444,14 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
                   type="button"
                   className="w-full neo-btn bg-[#121212] text-white font-mono-tech text-[10px] font-black py-1.5 flex items-center justify-center space-x-1.5 hover:bg-[#FFE500] hover:text-[#121212] transition-colors"
                 >
-                  <span>STEP INSIDE {b.code}</span>
+                  <span>Open {b.name}</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
 
                 {/* Proximity Callout Badge */}
                 {isClosest && (
                   <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 neo-badge bg-[#121212] text-[#00F59B] text-[8px] font-mono-tech px-2 py-0.5 border border-[#00F59B] animate-bounce z-30">
-                    PRESS [ENTER] TO STEP IN
+                    PRESS ENTER TO OPEN
                   </div>
                 )}
               </div>
@@ -472,7 +469,7 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
         >
           <div className="flex flex-col items-center">
             <span className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 mb-0.5 border border-[#FFE500]">
-              YOU (BUYER)
+              You
             </span>
             <div className="relative">
               {/* Drop Shadow beneath player feet */}
@@ -548,22 +545,22 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
           <span className="w-2 h-2 rounded-full bg-[#00F59B] animate-ping" />
           {activeHoverBuilding ? (
             <span>
-              DESTINATION:{' '}
+              Open:{' '}
               <strong className="text-[#121212] font-black">{activeHoverBuilding.name}</strong> ({activeHoverBuilding.quarterName}) —{' '}
               {activeHoverBuilding.subtext}.
             </span>
           ) : isNearNearest ? (
             <span>
-              PROXIMITY ALERT:{' '}
-              <strong className="text-[#121212] font-black">{nearestBuilding.name}</strong> is right next to you. Press{' '}
+              Nearby:{' '}
+              <strong className="text-[#121212] font-black">{nearestBuilding.name}</strong> — press{' '}
               <kbd className="px-1 py-0.5 bg-[#FAF7F0] border border-[#121212] font-mono-tech font-bold text-[10px]">
                 ENTER
               </kbd>{' '}
-              or click building to enter.
+              or click to open.
             </span>
           ) : (
             <span>
-              COORDINATES: <span className="font-bold">X: {playerPos.x.toFixed(0)}% | Y: {playerPos.y.toFixed(0)}%</span> — Click anywhere on the tactical grid or use WASD to explore the 4 quarters.
+              Position: <span className="font-bold">X: {playerPos.x.toFixed(0)}% | Y: {playerPos.y.toFixed(0)}%</span> — click anywhere or use WASD to move.
             </span>
           )}
         </div>
@@ -571,7 +568,7 @@ export const TownMap: React.FC<TownMapProps> = ({ onNavigate, activeJobsCount })
         <div className="flex items-center space-x-2 font-mono-tech text-[10px] text-[#6A6A6A]">
           <span className="hidden md:inline">KEYBOARD: [W/A/S/D] or [ARROWS]</span>
           <span className="hidden md:inline">•</span>
-          <span className="hidden sm:inline">CLICK TERRAIN TO WALK</span>
+          <span className="hidden sm:inline">CLICK TO MOVE</span>
         </div>
       </div>
     </div>

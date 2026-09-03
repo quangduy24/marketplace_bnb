@@ -30,44 +30,44 @@ interface DisciplineMetric {
 
 const DISCIPLINE_METRICS: DisciplineMetric[] = [
   {
-    id: 'monitoring',
-    name: 'MEMPOOL OBSERVATORY',
-    metricLabel: 'Gas & Sandwich Exploits Deflected',
+    id: 'rebalancing',
+    name: 'Rebalancing',
+    metricLabel: 'LP Range Efficiency',
     metricValue: 'Awaiting on-chain proof',
     valueProtectedEarned: 0,
     accent: '#38BDF8',
-    description: 'Realized savings from frontrunning deflection and sandwich attack mitigation on BSC — credited only after verified proof artifacts.',
-    code: 'ALPHA.01',
+    description: 'Manages LP ranges and resets positions automatically — credited only after verified proof.',
+    code: 'REBAL',
   },
   {
     id: 'grid',
-    name: 'DYNAMIC RANGE ENGINE',
-    metricLabel: 'PancakeSwap V3 Fee Yield',
+    name: 'Grid Trading',
+    metricLabel: 'Grid Order Yield',
     metricValue: 'Awaiting on-chain proof',
     valueProtectedEarned: 0,
     accent: '#FF7828',
-    description: 'Realized swap fee earnings from rebalanced tick positions — credited only after verified proof artifacts.',
-    code: 'ALPHA.02',
+    description: 'Places and manages automated grid orders — credited only after verified proof.',
+    code: 'GRID',
   },
   {
     id: 'health_factor',
-    name: 'VENUS LIQUIDATION SHIELD',
+    name: 'Health Factor Monitoring',
     metricLabel: 'Liquidation Penalty Averted',
     metricValue: 'Awaiting on-chain proof',
     valueProtectedEarned: 0,
     accent: '#FF4365',
-    description: 'Loss prevented by auto-rebalancing collateral prior to liquidation trigger — credited only after verified proof artifacts.',
-    code: 'ALPHA.03',
+    description: 'Protects lending positions from liquidation — credited only after verified proof.',
+    code: 'HEALTH',
   },
   {
     id: 'yield',
-    name: 'AUTONOMOUS COMPOUNDER',
+    name: 'Yield Optimisation',
     metricLabel: 'Idle Stablecoin Compounding',
     metricValue: 'Awaiting on-chain proof',
     valueProtectedEarned: 0,
     accent: '#00F59B',
-    description: 'Accrued returns from automated yield vault sweeping — credited only after verified proof artifacts.',
-    code: 'ALPHA.04',
+    description: 'Routes liquidity to the highest available APR — credited only after verified proof.',
+    code: 'YIELD',
   },
 ];
 
@@ -100,14 +100,14 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">
-                  TREASURY.04
+                  PERFORMANCE
                 </span>
                 <h2 className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-                  WALLET TREASURY & NET FINANCIAL ALPHA
+                  Portfolio Performance
                 </h2>
               </div>
               <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-                Strictly calculated from current active wallet hires: {buyerAddress ? `${buyerAddress.slice(0, 10)}...` : 'Connected Wallet'}
+                Calculated from active agents: {buyerAddress ? `${buyerAddress.slice(0, 10)}...` : 'Connected Wallet'}
               </span>
             </div>
           </div>
@@ -117,31 +117,31 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 neo-shadow-sm">
             <span className="font-mono-tech text-[9px] text-[#6A6A6A] uppercase font-bold tracking-wider">
-              TOTAL AGENT EXPENSE
+              TOTAL SPENT
             </span>
             <div className="font-display font-black text-lg sm:text-xl text-[#121212] mt-0.5">
               ${totalSpent.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
-              Escrow commitments & execution gas
+              Escrow deposits & gas fees
             </span>
           </div>
 
           <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 neo-shadow-sm">
             <span className="font-mono-tech text-[9px] text-[#00F59B] uppercase font-bold tracking-wider">
-              VALUE DEFENDED & HARVESTED
+              VALUE PROTECTED & EARNED
             </span>
             <div className="font-display font-black text-lg sm:text-xl text-[#00F59B] mt-0.5">
               +${totalEarnedProtected.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
-              Penalties prevented & vault returns
+              Losses avoided & yield earned
             </span>
           </div>
 
           <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 neo-shadow-sm">
             <span className="font-mono-tech text-[9px] text-[#121212] uppercase font-bold tracking-wider">
-              NET PORTFOLIO ALPHA
+              NET RESULT
             </span>
             <div
               className={`font-display font-black text-lg sm:text-xl mt-0.5 ${
@@ -152,7 +152,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
               <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
-              Net value added to user wallet
+              Net result for your wallet
             </span>
           </div>
         </div>
@@ -161,7 +161,11 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
       {/* 4 Discipline Metric Cards */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto pr-1">
         {DISCIPLINE_METRICS.map((dm) => {
-          const hasHire = hires.some((h) => h.catalog === dm.id);
+          const rawHasHire = hires.some((h) => {
+            const c = (h.catalog || 'rebalancing') as string;
+            return (c === 'monitoring' ? 'rebalancing' : c) === dm.id;
+          });
+          const hasHire = rawHasHire;
 
           if (!hasHire) {
             return (
@@ -173,11 +177,11 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
                   <div className="flex items-center space-x-2">
                     <Lock className="w-4 h-4 text-[#8A8A8A]" />
                     <h3 className="font-display font-extrabold text-xs sm:text-sm text-[#8A8A8A] uppercase">
-                      {dm.name} [STANDBY]
+                      {dm.name} — No active agent
                     </h3>
                   </div>
                   <span className="neo-badge bg-[#EAE5D8] text-[#6A6A6A] text-[8px] px-1.5 py-0.2">
-                    VACANT
+                    No active agent
                   </span>
                 </div>
 
@@ -185,10 +189,10 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
                   <div className="w-10 h-10 mx-auto bg-[#FFFFFF] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center">
                     <Lock className="w-5 h-5 text-[#121212]" />
                   </div>
-                  <p className="font-mono-tech text-xs text-[#6A6A6A] max-w-xs mx-auto">
-                    No active agent dispatched for{' '}
-                    <strong className="text-[#121212]">{dm.id}</strong> discipline.
-                  </p>
+                    <p className="font-mono-tech text-xs text-[#6A6A6A] max-w-xs mx-auto">
+                      No active agent for{' '}
+                      <strong className="text-[#121212]">{dm.id === 'health_factor' ? 'Health Factor Monitoring' : dm.id === 'rebalancing' ? 'Rebalancing' : dm.id === 'grid' ? 'Grid Trading' : 'Yield Optimisation'}</strong> category.
+                    </p>
                 </div>
 
                 <div className="border-t-2 border-[#121212]/20 pt-2 flex justify-end">
@@ -196,7 +200,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
                     onClick={() => onNavigateMarket(dm.id)}
                     className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1.5"
                   >
-                    <span>VISIT BAZAAR STALL</span>
+                    <span>Browse Marketplace</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -204,7 +208,11 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
             );
           }
 
-          const relevantHires = hires.filter((h) => h.catalog === dm.id);
+          const relevantHires = hires.filter((h) => {
+            const c = (h.catalog || 'rebalancing') as string;
+            const n = c === 'monitoring' ? 'rebalancing' : c;
+            return n === dm.id;
+          });
           const spentOnThis = relevantHires.reduce((s, h) => s + Number(h.budgetU || 0), 0);
 
           return (
@@ -232,14 +240,14 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-[#6A6A6A]">Value Protected / Yield:</span>
+                  <span className="text-[#6A6A6A]">Value protected / earned:</span>
                   <span className="font-black text-[#00F59B]">
                     +${dm.valueProtectedEarned.toFixed(2)} $U
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-[#6A6A6A]">Escrow Capital Allocated:</span>
+                  <span className="text-[#6A6A6A]">Deposited:</span>
                   <span className="font-bold text-[#121212]">
                     ${spentOnThis.toFixed(2)} $U
                   </span>
@@ -251,12 +259,12 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
               </div>
 
               <div className="border-t-2 border-[#121212] pt-2 flex items-center justify-between font-mono-tech text-xs">
-                <span className="text-[#2563EB] font-bold">{relevantHires.length} contract(s) active</span>
+                <span className="text-[#2563EB] font-bold">{relevantHires.length} agent(s) active</span>
                 <button
                   onClick={() => onNavigateMarket(dm.id)}
                   className="text-[#121212] font-black underline hover:text-[#FF7828]"
                 >
-                  HIRE ANOTHER &gt;
+                  Activate more &gt;
                 </button>
               </div>
             </div>

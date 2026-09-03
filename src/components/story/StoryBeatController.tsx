@@ -24,74 +24,74 @@ interface BeatData {
 const STORY_BEATS: BeatData[] = [
   {
     beatNumber: 1,
-    title: 'THE DORMANT MULTITUDE',
-    speaker: 'Old Scribe of BNB Chain',
+    title: '300,000+ AGENTS ON-CHAIN',
+    speaker: 'Overview',
     dialogue:
-      'Gaze upon the ledger — 300,011 ERC-8004 identities are etched into BNB Smart Chain (registry 0x8004…432, Chain 56) via api.8004scan.io. Each bears a verifiable tokenId and on-chain hash, yet they lie frozen in gray alleys, without a bazaar, without a heartbeat, without a hireable light.',
-    subtext: 'SCENE: A vast gray plaza under a cold sky. 300k stone sigils line the walls, their sigil-light dim. A distant counter ticks: 300,011.',
+      'Over 300,000 ERC-8004 agent identities are registered on BNB Smart Chain (registry 0x8004…432, Chain 56) via api.8004scan.io. Each has a verifiable tokenId and on-chain hash — but most are inactive, with no verified endpoint and no way to be hired.',
+    subtext: 'A large registry of registered agents. Only a fraction are verified and hireable.',
     accent: '#6A6A6A',
   },
   {
     beatNumber: 2,
-    title: 'THE VERIFICATION VOID',
-    speaker: 'Indexer Oracle',
+    title: 'VERIFICATION MATTERS',
+    speaker: 'Verification',
     dialogue:
-      'The indexer scrolls forever — but who is alive? `is_active` flickers, `is_endpoint_verified` stays false, and `a2a_endpoint` returns 404 with `{agentId}` still unreplaced. Hireable is a lie until a probe truly answers. Without verification, a buyer buys a ghost.',
-    subtext: 'SCENE: A towering black ledger flickers with `404 — is_endpoint_verified: false`. Ghostly agent silhouettes flicker and fade.',
+      'The indexer tracks who is alive: is_active, is_endpoint_verified, and the a2a_endpoint health. Many endpoints return 404 or still contain unreplaced {agentId} templates. Without verification, hiring means paying for a ghost.',
+    subtext: 'Unverified endpoints are filtered out — only reachable agents can be hired.',
     accent: '#F59E0B',
   },
   {
     beatNumber: 3,
-    title: 'THE FOUR MASTERS ARISE',
-    speaker: 'The Grand Architect',
+    title: '4 CATEGORIES',
+    speaker: 'Categories',
     dialogue:
-      'From the mist step four master artisans, each bound to a LANS stall: Watchtower Sentinel (mempool & whale radar), Chronos Grid Crafter (PancakeSwap V3 ticks), Vulcan Safety Smith (Venus Health Factor), and Demeter Harvester (APY vaults). Their beacons will define the bazaar.',
-    subtext: 'SCENE: Four vibrant masters emerge — cobalt, amber, crimson, emerald — sigils glowing as the mist parts.',
+      'Agents are organized into 4 categories: Rebalancing (manages LP ranges, resets positions), Grid Trading (places and manages grid orders), Yield Optimisation (routes liquidity to the highest APR), and Health Factor Monitoring (protects lending positions from liquidation).',
+    subtext: 'Four equal categories — every one has verified agents, live data, and ranking.',
     accent: '#FFE500',
   },
   {
     beatNumber: 4,
-    title: 'THE PROVING OF VITALITY',
-    speaker: 'Town Sentinel',
+    title: 'PROBING EVERY AGENT',
+    speaker: 'Liveness probe',
     dialogue:
-      'We unleash the rite of proving: HEAD → GET within 5,000ms, `{agentId}` substituted by real `tokenId`, any response < 500 counts as alive. Indexer truth `is_endpoint_verified` is trusted first; live probes catch the rest. Yesterday, 15 lived. After the rite, 61 breathe — 44 survive the strict hireable filter.',
-    subtext: 'SCENE: Emerald ping beams sweep four sigils. Dots flip: gray → green. A tally board flicks 15 → 61.',
+      'Every agent endpoint is probed: HEAD → GET within 5,000ms, {agentId} replaced by the real tokenId, any response under 500ms counts as alive. The indexer signal is trusted first; live probes catch the rest. Only verified agents can be hired.',
+    subtext: 'Gray dots flip to green as agents pass the probe.',
     accent: '#00F59B',
   },
   {
     beatNumber: 5,
-    title: 'THE SANCTUARY OF LANS',
-    speaker: 'LANS Caretaker',
+    title: 'MY AGENTS',
+    speaker: 'My Agents',
     dialogue:
-      'Step through the arch into the sanctuary — four chambers, four machines, always ticking: Observatory Radar for the mempool, Strategy Workshop for V3 ranges, Collateral Anvil for Venus loans, and Yield Hydroponics for vault compounding. No textboxes — only clockwork.',
-    subtext: 'SCENE: Warm 4-room sanctuary, brass gears turning, telescopes swiveling, anvils glowing, vines of yield sprouting.',
+      'After hiring, agents appear in My Agents — one workspace per category, always running: Rebalancing keeps LP ranges in range, Grid Trading manages orders, Health Factor Monitoring guards loans, and Yield Optimisation compounds vaults. No manual setup.',
+    subtext: 'Four category workspaces with live job status.',
     accent: '#38BDF8',
   },
   {
     beatNumber: 6,
-    title: 'THE HEURISTIC COMPASS',
-    speaker: 'Risk Oracle',
+    title: 'RANKING FOR YOUR WALLET',
+    speaker: 'Recommendation',
     dialogue:
-      'Your wallet is the compass. We read Venus Comptroller 0xf272…8209 via `getAccountLiquidity`, fetch Pancake V3 ranges, and idle stablecoins. Calm: wH=0.35. Emergency (HF < 1.15 or shortfall): wH→0.70. Then finalScore = wH·heuristic + 0.35·content + wB·Thompson(Beta) — ranking snaps to the shield you need.',
-    subtext: 'SCENE: A compass spins — HEALTH: 2.45 HF (calm) slams to 0.95 HF (DEFENSE). The bazaar reorders, Vulcan surges to top.',
+      'Your wallet drives ranking. We read Venus Comptroller 0xf272…8209 via getAccountLiquidity, plus PancakeSwap V3 ranges and idle stablecoins. Calm: wH=0.35. Emergency (HF < 1.15 or shortfall): wH→0.70. Then finalScore = wH·heuristic + 0.35·content + wB·Thompson(Beta) — ranking snaps to the protection you need.',
+    subtext: 'Health factor 2.45 (safe) drops to 0.95 (risk) — Health Factor Monitoring rises to top.',
     accent: '#FF4365',
   },
   {
     beatNumber: 7,
-    title: 'TRUSTLESS COMMERCE',
-    speaker: 'Escrow Arbiter',
+    title: 'ESCROW-PROTECTED HIRING',
+    speaker: 'Escrow',
     dialogue:
-      'No custodians. No platform token. A quote (`/api/hires/prepare`) locks budget and deadline; you connect via EIP-6963 (MetaMask/Binance/Trust), then `personal_sign` a free message — “LANS… This signature costs no gas” — verified on BNB Chain. Escrow is ERC-8183 or x402; funds move only on proof.',
-    subtext: 'SCENE: A golden coin pouch arcs buyer → agent, pausing mid-air inside a crystalline escrow cage until a proof hash lands.',
+      'No custodians. No platform token. A quote (/api/hires/prepare) locks budget and deadline; you connect via EIP-6963 (MetaMask/Binance/Trust), then personal_sign a free message — "LANS… This signature costs no gas" — verified on BNB Chain. Escrow is ERC-8183 or x402; funds move only on proof.',
+    subtext: 'Payment moves buyer → agent, paused in escrow until a proof hash lands.',
     accent: '#A855F7',
   },
   {
     beatNumber: 8,
-    title: 'ENTER THE LIVING MARKET',
-    speaker: 'Village Herald',
+    title: 'START HERE',
+    speaker: 'Welcome',
     dialogue:
-      'The gates are warm, the plaza (`lans.work/plaza`) is first. The bazaar (`/market`) holds 188 living agents, the sanctuary (`/agents`) watches your hires, the logbook (`/history`) immutabilizes proofs, and the treasury (`/treasury`) tallies alpha. Connect and deploy — LANS is alive.',
-    subtext: 'SCENE: Sunlight floods the plaza. Banners read /plaza · /market · /agents · /history · /treasury. Your first deployment awaits.',
+      'Home (/plaza) is the overview. The Marketplace (/market) lists all registered agents across 4 categories — search the full registry live. My Agents (/agents) tracks your hires, History (/history) stores on-chain proofs, and Performance (/treasury) shows results. Connect and hire — LANS is live.',
+    subtext: 'Banners read /plaza · /market · /agents · /history · /treasury. Your first hire awaits.',
     accent: '#FACC15',
   },
 ];
@@ -161,7 +161,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
     <div className="relative w-full h-[calc(100vh-64px)] min-h-[600px] bg-[#F4F0EA] flex flex-col justify-between p-4 md:p-8 overflow-hidden select-none editorial-grid">
       {/* Film Letterbox Bars - cinematic */}
       <motion.div initial={{ height: 0 }} animate={{ height: 18 }} className="absolute top-0 left-0 right-0 bg-[#121212] z-30 flex items-center justify-center">
-        <span className="font-mono-tech text-[8px] text-[#FFE500] tracking-[0.3em]">LANS • AUTONOMOUS SANCTUARY • BNB CHAIN</span>
+        <span className="font-mono-tech text-[8px] text-[#FFE500] tracking-[0.3em]">LANS • AUTONOMOUS AGENTS • BNB CHAIN</span>
       </motion.div>
       <motion.div initial={{ height: 0 }} animate={{ height: 18 }} className="absolute bottom-0 left-0 right-0 bg-[#121212] z-30 flex items-center justify-center">
         <span className="font-mono-tech text-[8px] text-[#6A6A6A] tracking-widest">ERC-8004 • ERC-8183 • x402 • 8004scan • Venus</span>
@@ -174,10 +174,10 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
           <LansLogo size="md" showSubtitle={true} className="hidden sm:flex" />
           <div className="border-l-2 border-[#121212] pl-3 py-0.5 hidden md:block">
             <span className="neo-badge bg-[#FFE500] text-[#121212] text-[8px] px-1.5 py-0.2">
-              ORIGIN CHRONICLES — CINEMATIC
+              HOW IT WORKS
             </span>
             <p className="font-mono-tech text-xs text-[#121212] mt-0.5 font-bold">
-              Act 1: The Autonomous Renaissance — Beat {currentBeat.beatNumber} / {STORY_BEATS.length}
+              Step {currentBeat.beatNumber} / {STORY_BEATS.length}
             </p>
           </div>
         </div>
@@ -188,7 +188,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             className="neo-btn bg-[#FFFFFF] text-[#121212] font-mono-tech text-xs font-bold px-3 py-1.5 flex items-center space-x-1.5"
           >
             <FastForward className="w-3.5 h-3.5" />
-            <span>SKIP STORY</span>
+            <span>SKIP</span>
           </button>
           {!walletAddress ? (
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onConnectWallet} className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-xs px-3.5 py-1.5 hidden sm:flex items-center space-x-1.5 shadow-[0_0_12px_rgba(255,229,0,0.5)]">
@@ -275,8 +275,8 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                 ))}
               </div>
               <div className="flex gap-2">
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCurrentBeatIndex(1)} className="neo-badge bg-[#FAF7F0] border-2 border-[#121212] text-xs px-3 py-1 font-bold flex items-center space-x-1"><Eye className="w-3 h-3" /><span>INSPECT LEDGER</span></motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onCompleteStory} className="neo-badge bg-[#FFE500] border-2 border-[#121212] text-xs px-3 py-1 font-black flex items-center space-x-1"><Map className="w-3 h-3" /><span>ENTER PLAZA</span></motion.button>
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCurrentBeatIndex(1)} className="neo-badge bg-[#FAF7F0] border-2 border-[#121212] text-xs px-3 py-1 font-bold flex items-center space-x-1"><Eye className="w-3 h-3" /><span>VIEW REGISTRY</span></motion.button>
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onCompleteStory} className="neo-badge bg-[#FFE500] border-2 border-[#121212] text-xs px-3 py-1 font-black flex items-center space-x-1"><Map className="w-3 h-3" /><span>GO TO HOME</span></motion.button>
               </div>
             </motion.div>
           )}
@@ -300,7 +300,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                 ))}
               </motion.div>
               <div className="flex gap-2">
-                <motion.button whileHover={{ scale: 1.05 }} onClick={() => setCurrentBeatIndex(3)} className="neo-btn bg-[#FF6B6B] text-white text-xs font-black px-3 py-1.5 flex items-center space-x-1"><Activity className="w-3.5 h-3.5" /><span>EXPOSE GHOSTS</span></motion.button>
+                <motion.button whileHover={{ scale: 1.05 }} onClick={() => setCurrentBeatIndex(3)} className="neo-btn bg-[#FF6B6B] text-white text-xs font-black px-3 py-1.5 flex items-center space-x-1"><Activity className="w-3.5 h-3.5" /><span>SHOW UNVERIFIED</span></motion.button>
                 <button onClick={() => window.open('https://api.8004scan.io', '_blank')} className="neo-btn bg-white border-2 border-[#121212] text-xs font-bold px-3 py-1.5">VIEW SCAN</button>
               </div>
             </motion.div>
@@ -317,15 +317,15 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             >
               <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="neo-badge bg-[#FFE500] text-[#121212] text-xs px-4 py-1 font-display font-black flex items-center space-x-2 shadow-lg">
                 <motion.div animate={{ rotate: [0, 15, -15, 0] }} transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 2 }}><Sparkles className="w-4 h-4 text-[#121212]" /></motion.div>
-                <span>THE FOUR PILLARS EMERGE</span>
+                <span>THE 4 CATEGORIES</span>
                 <Sparkles className="w-4 h-4 text-[#121212]" />
               </motion.div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full">
                 {[
-                  { k: 'monitoring', label: 'WATCHTOWER', sub: 'SEC.01 · 81 agents', color: '#0284C7', desc: 'Mempool radar' },
-                  { k: 'grid', label: 'GRID CRAFT', sub: 'DEX.02 · 78 agents', color: '#EA580C', desc: 'V3 ticks' },
-                  { k: 'health_factor', label: 'SAFETY FORGE', sub: 'RISK.03 · 30 agents', color: '#E11D48', desc: 'Venus guard' },
-                  { k: 'yield', label: 'HARVEST GREEN', sub: 'APY.04 · 56 agents', color: '#059669', desc: 'Vaults' },
+                  { k: 'rebalancing', label: 'REBALANCING', sub: 'Manages LP ranges', color: '#0284C7', desc: 'Reset positions' },
+                  { k: 'grid', label: 'GRID TRADING', sub: 'Automated grid orders', color: '#EA580C', desc: 'Market-making' },
+                  { k: 'health_factor', label: 'HEALTH FACTOR', sub: 'Lending protection', color: '#E11D48', desc: 'Liquidation guard' },
+                  { k: 'yield', label: 'YIELD OPTIMISATION', sub: 'Highest APR routing', color: '#059669', desc: 'Auto-compound' },
                 ].map((m, i) => (
                   <motion.div key={m.k} initial={{ y: 30, opacity: 0, rotate: -2 }} animate={{ y: 0, opacity: 1, rotate: 0 }} transition={{ delay: 0.1 + i * 0.09, type: 'spring', stiffness: 120 }} whileHover={{ y: -4, scale: 1.03 }} className="text-center neo-card bg-[#FAF7F0] p-3 cursor-pointer group">
                     <motion.img whileHover={{ scale: 1.1, rotate: 2 }} src={getPixelSprite(m.k as any)} alt={m.label} referrerPolicy="no-referrer" className="w-14 h-14 sm:w-16 sm:h-16 mx-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)]" animate={{ y: [0, -3, 0] }} transition={{ duration: 2 + i * 0.3, repeat: Infinity, ease: 'easeInOut' }} />
@@ -336,7 +336,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                 ))}
               </div>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="flex gap-2">
-                <button onClick={() => setCurrentBeatIndex(3)} className="neo-btn bg-[#121212] text-white text-xs font-bold px-3 py-1.5 flex items-center space-x-1"><Eye className="w-3.5 h-3.5" /><span>WATCH THEM BREATHE</span></button>
+                <button onClick={() => setCurrentBeatIndex(3)} className="neo-btn bg-[#121212] text-white text-xs font-bold px-3 py-1.5 flex items-center space-x-1"><Eye className="w-3.5 h-3.5" /><span>WATCH THEM GO LIVE</span></button>
               </motion.div>
             </motion.div>
           )}
@@ -382,15 +382,15 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             >
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-center font-display font-black text-xs text-[#121212] mb-3 uppercase tracking-tight flex items-center justify-center space-x-2">
                 <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}><Eye className="w-3.5 h-3.5" /></motion.div>
-                <span>THE LANS SANCTUARY // 4 FUNCTIONAL WORK CHAMBERS</span>
+                <span>MY AGENTS // 4 CATEGORY WORKSPACES</span>
                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }} className="w-3 h-3 border-2 border-[#121212] border-t-[#00F59B] rounded-full" />
               </motion.div>
               <div className="grid grid-cols-2 gap-3 text-xs font-mono-tech">
                 {[
-                  { icon: 'monitoring', title: 'Observatory Radar', desc: 'Tracking BSC Mempool', color: '#0284C7', pulse: 0 },
-                  { icon: 'grid', title: 'Strategy Workshop', desc: 'PancakeSwap V3 Ticks', color: '#EA580C', pulse: 0.15 },
-                  { icon: 'health_factor', title: 'Collateral Anvil', desc: 'Venus Safety Guard', color: '#E11D48', pulse: 0.3 },
-                  { icon: 'yield', title: 'Yield Hydroponics', desc: 'Compounding Vaults', color: '#059669', pulse: 0.45 },
+                  { icon: 'rebalancing', title: 'Rebalancing', desc: 'LP ranges in range', color: '#0284C7', pulse: 0 },
+                  { icon: 'grid', title: 'Grid Trading', desc: 'Managing grid orders', color: '#EA580C', pulse: 0.15 },
+                  { icon: 'health_factor', title: 'Health Factor Monitoring', desc: 'Guarding loans', color: '#E11D48', pulse: 0.3 },
+                  { icon: 'yield', title: 'Yield Optimisation', desc: 'Compounding vaults', color: '#059669', pulse: 0.45 },
                 ].map((ch, i) => (
                   <motion.div key={ch.title} initial={{ x: i % 2 === 0 ? -12 : 12, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.1 + i * 0.08, type: 'spring' }} whileHover={{ scale: 1.02, y: -2 }} className="bg-[#FAF7F0] p-2.5 border-2 border-[#121212] flex items-center space-x-2.5 text-left cursor-pointer group">
                     <motion.img animate={{ y: [0, -2, 0] }} transition={{ duration: 2 + ch.pulse, repeat: Infinity, ease: 'easeInOut' }} src={getPixelSprite(ch.icon as any, 'working')} alt={ch.icon} referrerPolicy="no-referrer" className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
@@ -400,7 +400,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
               </div>
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mt-3 flex justify-center gap-2">
                 <motion.button whileHover={{ scale: 1.05, y: -1 }} whileTap={{ scale: 0.95 }} onClick={() => navigate ? navigate('agents' as AppView) : onCompleteStory()} className="neo-btn bg-[#00F59B] text-[#121212] text-xs font-black px-4 py-1.5 flex items-center space-x-1 shadow-[0_4px_0_#121212]">
-                  <Hammer className="w-3.5 h-3.5" /><span>ENTER SANCTUARY LIVE</span><ArrowRight className="w-3 h-3" />
+                  <Hammer className="w-3.5 h-3.5" /><span>OPEN MY AGENTS</span><ArrowRight className="w-3 h-3" />
                 </motion.button>
               </motion.div>
             </motion.div>
@@ -416,7 +416,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             >
               <motion.div animate={{ rotate: compassHF < 1.2 ? [0, -4, 4, -4, 0] : 0 }} transition={{ duration: 0.4 }} className={`neo-badge text-xs px-4 py-1.5 font-mono-tech flex items-center space-x-2 border-2 border-[#121212] ${compassHF < 1.2 ? 'bg-[#FF4365] text-white animate-pulse' : 'bg-[#121212] text-[#FFE500]'}`}>
                 <Brain className="w-3.5 h-3.5" />
-                <span>HEURISTIC COMPASS · wH 0.35 → 0.70</span>
+                <span>RANKING FOR YOUR WALLET · wH 0.35 → 0.70</span>
                 <motion.span animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} className="w-3 h-3 border-2 border-current border-t-transparent rounded-full" />
               </motion.div>
               <motion.div layout className="neo-card bg-[#FAF7F0] p-3 border-2 border-[#121212] font-mono-tech text-xs w-full space-y-1">
@@ -469,7 +469,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
                   <motion.div animate={{ y: [0, -2, 0] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }} className="w-12 h-12 bg-white border-2 border-[#121212] flex items-center justify-center mx-auto group-hover:border-[#FF7828]">
                     <img src={getPixelSprite('health_factor')} alt="Agent" referrerPolicy="no-referrer" className="w-10 h-10 object-contain" />
                   </motion.div>
-                  <span className="font-mono-tech text-[9px] font-bold mt-1 block text-[#00F59B]">AGENT VAULT</span>
+                  <span className="font-mono-tech text-[9px] font-bold mt-1 block text-[#00F59B]">AGENT</span>
                   <span className="font-mono-tech text-[8px] text-[#6A6A6A]">click to hire</span>
                 </motion.button>
               </div>
@@ -495,11 +495,11 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
               <motion.h2 initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.25 }} className="font-display font-black text-xl sm:text-2xl text-[#121212] uppercase tracking-tight">WELCOME TO LANS</motion.h2>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-5 gap-1.5 w-full font-mono-tech text-[9px]">
                 {[
-                  { label: 'PLAZA', path: '/plaza', color: '#FFE500' },
+                  { label: 'HOME', path: '/plaza', color: '#FFE500' },
                   { label: 'MARKET', path: '/market', color: '#00F59B' },
                   { label: 'AGENTS', path: '/agents', color: '#38BDF8' },
                   { label: 'HISTORY', path: '/history', color: '#A855F7' },
-                  { label: 'TREASURY', path: '/treasury', color: '#F59E0B' },
+                  { label: 'RESULTS', path: '/treasury', color: '#F59E0B' },
                 ].map((p, i) => (
                   <motion.button key={p.label} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 + i * 0.06 }} whileHover={{ y: -2, scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate ? navigate(p.path.replace('/', '') as AppView) : onCompleteStory()} className="neo-card bg-[#FAF7F0] border-2 border-[#121212] py-2 font-bold hover:bg-white hover:shadow-md" style={{ borderTop: `3px solid ${p.color}` }}>{p.label}</motion.button>
                 ))}
@@ -507,7 +507,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="font-sans text-sm text-[#4A4A4A] leading-relaxed">Every view has a path: <span className="font-mono-tech text-xs bg-[#FAF7F0] px-1 border border-[#121212]">/plaza · /market · /agents · /history · /treasury</span></motion.p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 w-full">
                 <motion.button whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }} onClick={onCompleteStory} className="w-full sm:w-auto neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-xs px-6 py-2.5 flex items-center justify-center space-x-2 shadow-[0_3px_0_#121212]">
-                  <span>ENTER PLAZA</span>
+                  <span>GO TO HOME</span>
                   <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 0.8, repeat: Infinity }}><ArrowRight className="w-4 h-4" /></motion.div>
                 </motion.button>
                 {!walletAddress ? (
@@ -528,12 +528,12 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
       <div className="neo-card bg-[#FFFFFF] p-4 md:p-5 border-2 border-[#121212] neo-shadow relative shrink-0">
         <div className="flex items-center justify-between border-b-2 border-[#121212] pb-1.5 mb-2.5">
           <div className="flex items-center space-x-2">
-            <span className="neo-badge bg-[#FFE500] text-[#121212] text-[8px] px-1.5 py-0.2">SPEAKER</span>
+            <span className="neo-badge bg-[#FFE500] text-[#121212] text-[8px] px-1.5 py-0.2">SECTION</span>
             <motion.span key={`speaker-${currentBeat.beatNumber}`} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="font-display font-black text-xs text-[#121212] uppercase tracking-wide">
               {currentBeat.speaker}
             </motion.span>
           </div>
-          <span className="font-mono-tech text-xs text-[#6A6A6A]">Beat {currentBeat.beatNumber} / {STORY_BEATS.length}</span>
+          <span className="font-mono-tech text-xs text-[#6A6A6A]">Step {currentBeat.beatNumber} / {STORY_BEATS.length}</span>
         </div>
 
         <motion.p key={`dialogue-${currentBeat.beatNumber}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-sans text-sm md:text-base text-[#121212] leading-relaxed min-h-[56px]">
@@ -550,7 +550,7 @@ export const StoryBeatController: React.FC<StoryBeatControllerProps> = ({
             ))}
           </div>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} className="neo-btn bg-[#121212] text-white font-mono-tech text-xs font-bold px-4 py-1.5 flex items-center space-x-1.5 hover:bg-[#FFE500] hover:text-[#121212]">
-            <span>{currentBeatIndex === STORY_BEATS.length - 1 ? 'ENTER PLAZA' : 'NEXT BEAT'}</span>
+            <span>{currentBeatIndex === STORY_BEATS.length - 1 ? 'GO TO HOME' : 'NEXT'}</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         </div>

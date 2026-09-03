@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AgentData, CareerCategory, WalletContextState } from '../../types.ts';
 import { getPixelSprite } from '../game/pixelAssets.ts';
 import { CompareModal } from './CompareModal.tsx';
@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 
 interface MarketplaceViewProps {
-  agents: AgentData[];
+  agents: AgentData[]; // toàn bộ pool (769) — directory & search mặc định
+  agentsActive?: AgentData[]; // active labeled (143) — 4 stalls Image 1
   walletContext: WalletContextState;
   buyerAddress?: string;
   onHireAgent: (payload: any) => Promise<void>;
@@ -39,71 +40,106 @@ interface StallMetadata {
 const STALLS_CONFIG: StallMetadata[] = [
   {
     id: 'health_factor',
-    name: 'HEALTH FACTOR CITADEL',
-    subtitle: 'Venus Loan Protection',
-    purpose: 'Autonomously monitors Venus loan collateral to prevent liquidation seizure penalties.',
+    name: 'Health Factor Monitoring',
+    subtitle: 'Protects lending positions from liquidation',
+    purpose: 'Protects lending positions from liquidation.',
     accent: '#FF4365',
     accentBg: '#FFF1F2',
-    issueCode: 'RISK.03',
+    issueCode: 'HEALTH',
     icon: '🛡️',
   },
   {
     id: 'yield',
-    name: 'YIELD GREENHOUSE',
-    subtitle: 'Optimal Yield Compounder',
-    purpose: 'Routes idle stablecoins into top-yielding BSC vaults and automatically compounds interest.',
+    name: 'Yield Optimisation',
+    subtitle: 'Routes liquidity to the highest available APR',
+    purpose: 'Routes liquidity to the highest available APR.',
     accent: '#00F59B',
     accentBg: '#ECFDF5',
-    issueCode: 'APY.04',
+    issueCode: 'YIELD',
     icon: '💰',
   },
   {
     id: 'grid',
-    name: 'GRID DRAFT WORKSHOP',
-    subtitle: 'Dynamic Range Re-balancer',
-    purpose: 'Dynamically re-centers PancakeSwap V3 LP ranges to eliminate dormant capital and maximize swap fee capture.',
+    name: 'Grid Trading',
+    subtitle: 'Places and manages automated grid orders',
+    purpose: 'Places and manages automated grid orders.',
     accent: '#FF7828',
     accentBg: '#FFF7ED',
-    issueCode: 'DEX.02',
+    issueCode: 'GRID',
     icon: '📈',
   },
   {
-    id: 'monitoring',
-    name: 'WATCHTOWER OBSERVATORY',
-    subtitle: 'Mempool & Whale Sentinel',
-    purpose: 'Scans the BSC mempool 24/7 to deliver instant alerts upon detecting sandwich attacks or whale dumps.',
+    id: 'rebalancing',
+    name: 'Rebalancing',
+    subtitle: 'Manages LP ranges, resets positions automatically',
+    purpose: 'Manages LP ranges, resets positions automatically.',
     accent: '#38BDF8',
     accentBg: '#F0F9FF',
-    issueCode: 'SEC.01',
-    icon: '👁️',
+    issueCode: 'REBAL',
+    icon: '🔄',
   },
 ];
 
 export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   agents,
+  agentsActive,
   walletContext,
   buyerAddress,
   onHireAgent,
   network,
 }) => {
+  // Pool cho 4 stalls (Image 1): ưu tiên agentsActive (143), fallback agents
+  const stallPool = agentsActive && agentsActive.length > 0 ? agentsActive : agents;
   // Filters & State
-  const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all' | 'uncategorized'>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForCompare, setSelectedForCompare] = useState<AgentData[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [agentToHire, setAgentToHire] = useState<AgentData | null>(null);
+  const [hireCategory, setHireCategory] = useState<CareerCategory | null>(null);
   const [inspectedAgent, setInspectedAgent] = useState<AgentData | null>(null);
   const [showGlossary, setShowGlossary] = useState(false);
+  const [liveSearchResults, setLiveSearchResults] = useState<AgentData[] | null>(null);
+  const [liveSearching, setLiveSearching] = useState(false);
+
+  // Live registry search trên 8004scan (300k+) — luôn bật khi có từ khóa
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setLiveSearchResults(null);
+      setLiveSearching(false);
+      return;
+    }
+    setLiveSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/agents?q=${encodeURIComponent(searchQuery.trim())}&live=true&activeOnly=false&includeUncategorized=true`);
+        if (res.ok) {
+          const data = await res.json();
+          setLiveSearchResults(data.agents || []);
+        }
+      } catch (err) {
+        console.warn('Live search failed', err);
+      } finally {
+        setLiveSearching(false);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // Filter handlers
-  const handleStallClick = (cat: CareerCategory) => {
+  const handleStallClick = (cat: CareerCategory | 'uncategorized') => {
     if (selectedCategory === cat) {
       setSelectedCategory('all');
     } else {
       setSelectedCategory(cat);
     }
   };
+
+  // Đếm uncategorized (Other) cho tab category
+  const uncategorizedCount = agents.filter(
+    (a) => (a.labels || []).includes('uncategorized') || !a.labels || a.labels.length === 0
+  ).length;
 
   const toggleCompareSelect = (agent: AgentData) => {
     if (selectedForCompare.find((a) => a.agentId === agent.agentId)) {
@@ -117,14 +153,29 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     }
   };
 
-  // Filter agents for the right panel
-  const filteredAgents = agents.filter((agent) => {
+  // Pool cho Directory: mặc định toàn bộ agents (769). Khi search có từ khóa dùng live search (769 + 8004scan registry 300k+)
+  const directoryPool = (() => {
+    if (!searchQuery.trim()) return agents;
+    return liveSearchResults && liveSearchResults.length > 0 ? liveSearchResults : agents;
+  })();
+
+  const isLiveMode = Boolean(searchQuery.trim());
+
+  // Filter agents for the right panel — đa tag: agent có thể thuộc nhiều category
+  const filteredAgents = directoryPool.filter((agent) => {
     if (verifiedOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
       return false;
     }
-    const agentCategory = (agent.labels?.[0] || 'monitoring') as CareerCategory;
-    if (selectedCategory !== 'all' && agentCategory !== selectedCategory) {
-      return false;
+    // Category filter: 'all' hiển thị toàn bộ (gồm uncategorized/Other); chọn category cụ thể thì lọc theo labels
+    if (selectedCategory === 'uncategorized') {
+      const labels = agent.labels || [];
+      if (!labels.includes('uncategorized') && labels.length > 0) return false;
+      return true;
+    }
+    if (selectedCategory !== 'all') {
+      const normalizedLabels = (agent.labels || []).map((l) => (l === 'monitoring' ? 'rebalancing' : l));
+      if (normalizedLabels.length === 0) return false;
+      if (!normalizedLabels.includes(selectedCategory)) return false;
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -136,9 +187,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     return true;
   });
 
-  // Emergency agent for loan shortfall
+  // Emergency agent for loan shortfall — dùng stallPool (active labeled)
   const emergencyAgent =
-    agents.find((a) => a.labels?.includes('health_factor') || a.agentId === 'vulcan') || agents[0];
+    stallPool.find((a) => a.labels?.includes('health_factor') || a.agentId === 'vulcan') || stallPool[0];
 
   return (
     <div className="w-full h-[calc(100vh-120px)] min-h-[560px] flex flex-col bg-[#F4F0EA] select-none overflow-hidden">
@@ -149,10 +200,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             MKT.01
           </span>
           <span className="neo-badge bg-[#00F59B] text-[#121212] text-[9px] px-2 py-0.5 font-black font-mono-tech">
-            ∞ UNLIMITED HIRES
+            Unlimited hires
           </span>
           <span className="font-display font-extrabold text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-            AUTONOMOUS AGENT BAZAAR
+            Agent Marketplace
           </span>
           <span className="hidden sm:inline font-mono-tech text-[10px] text-[#6A6A6A]">
             // Verified ERC-8004 Agents with Unlimited Concurrent Escrows
@@ -162,7 +213,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
         <div className="flex items-center space-x-2 text-[10px] font-mono-tech">
           <div className="hidden md:flex items-center space-x-1.5 text-[#059669] bg-[#FAF7F0] px-2 py-1 border border-[#121212]">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span className="font-bold">100% SMART ESCROW PROTECTED</span>
+            <span className="font-bold">100% ESCROW PROTECTED</span>
           </div>
 
           <button
@@ -199,9 +250,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </span>
               </div>
               <div className="bg-[#FAF7F0] p-2 border border-[#121212]">
-                <strong className="text-[#121212] block mb-0.5">🧪 RISK-FREE DEMO</strong>
+                <strong className="text-[#121212] block mb-0.5">📜 VERIFIED PROOFS</strong>
                 <span className="text-[#555] font-sans text-[11px]">
-                  Click Hire on any agent to test the entire escrow workflow without real tokens.
+                  Every completed job stores an on-chain proof with an explorer link you can check.
                 </span>
               </div>
             </div>
@@ -235,9 +286,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       HEALTH FACTOR: {walletContext.healthFactor.toFixed(2)} HF (&lt; 1.15)
                     </span>
                   </div>
-                  <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
-                    Your Venus collateral is near liquidation — immediate seizure risk. Deploy <strong>Vulcan Guardian</strong> immediately to safeguard your loan.
-                  </p>
+                    <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
+                      Your Venus collateral is near liquidation — immediate seizure risk. Activate a Health Factor Monitoring agent to protect your position.
+                    </p>
                 </div>
               </div>
 
@@ -246,7 +297,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 className="neo-btn bg-[#FF4365] text-white font-display font-black text-xs px-3.5 py-1.5 flex items-center space-x-1.5 hover:bg-[#121212] shrink-0 self-end sm:self-center"
               >
                 <Zap className="w-3.5 h-3.5 fill-white" />
-                <span>DEPLOY SHIELD NOW</span>
+                <span>Activate Protection</span>
               </button>
             </div>
           )}
@@ -255,11 +306,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           <div className="flex items-center justify-between mb-2 shrink-0">
             <div className="flex items-center space-x-1.5">
               <span className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-                SELECT A SPECIALIZED SERVICE STALL
+                Browse by category
               </span>
             </div>
             <span className="font-mono-tech text-[9px] text-[#6A6A6A]">
-              Click a stall to filter agents
+              Select a category to filter agents
             </span>
           </div>
 
@@ -268,7 +319,11 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             {STALLS_CONFIG.map((stall) => {
               const isSelected = selectedCategory === stall.id;
               const isEmergency = walletContext.hasEmergencyShortfall && stall.id === 'health_factor';
-              const stallAgents = agents.filter((a) => a.labels?.includes(stall.id));
+              const stallAgents = stallPool.filter((a) => {
+                const labels = a.labels || [];
+                if (stall.id === 'rebalancing') return labels.includes('rebalancing') || labels.includes('monitoring');
+                return labels.includes(stall.id);
+              });
               const topAgent = stallAgents[0];
               const rates = stallAgents
                 .map((a) => Number((a.rawJson as any)?.hourlyCostU))
@@ -342,20 +397,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         className="neo-badge text-[8px] px-1.5 py-0.5 font-mono-tech font-black border border-[#121212]"
                         style={{ backgroundColor: stall.accent, color: '#121212' }}
                       >
-                        {stall.id.toUpperCase()}
+                        {stall.id === 'health_factor' ? 'HEALTH FACTOR MONITORING' : stall.id === 'yield' ? 'YIELD OPTIMISATION' : stall.id === 'grid' ? 'GRID TRADING' : 'REBALANCING'}
                       </span>
-                      {stall.id === 'health_factor' && (
-                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">RISK</span>
-                      )}
-                      {stall.id === 'yield' && (
-                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">APY</span>
-                      )}
-                      {stall.id === 'grid' && (
-                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">DEX</span>
-                      )}
-                      {stall.id === 'monitoring' && (
-                        <span className="neo-badge bg-white text-[#121212] text-[8px] px-1.5 py-0.5 font-mono-tech border border-[#121212]">SEC</span>
-                      )}
                     </div>
 
                     {/* Top agent (real data) */}
@@ -391,6 +434,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setHireCategory(stall.id);
                             setAgentToHire(topAgent);
                           }}
                           className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-[9px] px-2.5 py-1 flex items-center space-x-1 hover:bg-[#FFE500]"
@@ -409,7 +453,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
         {/* RIGHT 48%: Dedicated Search & Agent Directory (As Originally Requested) */}
         <div className="w-full lg:w-[48%] h-full bg-[#FFFFFF] flex flex-col p-3 sm:p-4 overflow-hidden">
-          {/* Directory Header + Active Probed Status */}
+              {/* Directory Header + Active Probed Status */}
           <div className="border-b-2 border-[#121212] pb-2.5 mb-2.5 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
@@ -419,26 +463,30 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     AGENT DIRECTORY
                   </h3>
                   <span className="font-mono-tech text-[9px] text-[#6A6A6A] mt-0.5 block">
-                    Showing {filteredAgents.length} of {agents.length} on-chain agents
+                    Showing {filteredAgents.length} {isLiveMode ? 'live registry results' : `of ${agents.length} agents (all)`}
+                    {isLiveMode && liveSearching ? ' · searching 8004scan…' : ''}
+                    {isLiveMode && liveSearchResults && liveSearchResults.length > 0 ? ' (registry 300k+)' : ''}
                   </span>
                 </div>
               </div>
 
-              {/* Verified / Hireable only checkbox */}
-              <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
-                <input
-                  type="checkbox"
-                  checked={verifiedOnly}
-                  onChange={(e) => setVerifiedOnly(e.target.checked)}
-                  className="accent-[#121212] w-3.5 h-3.5 border-2 border-[#121212]"
-                />
-                <span className="text-[#059669]">● VERIFIED & HIREABLE ONLY</span>
-              </label>
+              <div className="flex items-center space-x-2">
+                {/* Verified only checkbox */}
+                <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    className="accent-[#121212] w-3.5 h-3.5 border-2 border-[#121212]"
+                  />
+                  <span className="text-[#059669]">● VERIFIED ONLY</span>
+                </label>
+              </div>
             </div>
 
             {/* Quick Goal Tabs */}
             <div className="mb-2 bg-[#FAF7F0] p-1 border border-[#121212] flex items-center space-x-1 overflow-x-auto text-[10px] font-mono-tech scrollbar-none">
-              <span className="text-[#8A8A8A] font-bold px-1 shrink-0 text-[9px]">GOAL:</span>
+              <span className="text-[#8A8A8A] font-bold px-1 shrink-0 text-[9px]">CATEGORY:</span>
               <button
                 onClick={() => setSelectedCategory('all')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
@@ -457,7 +505,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF4365]/20'
                 }`}
               >
-                🛡️ LOAN DEFENSE
+                Health Factor Monitoring
               </button>
               <button
                 onClick={() => handleStallClick('yield')}
@@ -467,7 +515,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#00F59B]/20'
                 }`}
               >
-                💰 HARVEST APY
+                Yield Optimisation
               </button>
               <button
                 onClick={() => handleStallClick('grid')}
@@ -477,17 +525,27 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF7828]/20'
                 }`}
               >
-                📊 LP RANGE
+                Grid Trading
               </button>
               <button
-                onClick={() => handleStallClick('monitoring')}
+                onClick={() => handleStallClick('rebalancing')}
                 className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'monitoring'
+                  selectedCategory === 'rebalancing'
                     ? 'bg-[#38BDF8] text-[#121212] border-[#121212]'
                     : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#38BDF8]/20'
                 }`}
               >
-                👁️ WHALE ALERT
+                Rebalancing
+              </button>
+              <button
+                onClick={() => handleStallClick('uncategorized')}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
+                  selectedCategory === 'uncategorized'
+                    ? 'bg-[#A0A0A0] text-white border-[#121212]'
+                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#A0A0A0]/30'
+                }`}
+              >
+                Uncategorized ({uncategorizedCount})
               </button>
             </div>
 
@@ -496,7 +554,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <Search className="w-4 h-4 text-[#8A8A8A] mr-2 shrink-0" />
               <input
                 type="text"
-                placeholder="Search agent title, skills, or tokens (e.g. Venus, APY, Whale)..."
+                placeholder="Search all agents — name, skills, or tokens (live 8004scan registry 300k+)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-[#121212] font-mono-tech text-xs focus:outline-none placeholder-[#8A8A8A]"
@@ -536,7 +594,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </div>
             ) : (
               filteredAgents.map((agent) => {
-                const career = (agent.labels?.[0] || 'monitoring') as CareerCategory;
+                const rawLabels = (agent.labels || []);
+                const normalizedLabels = rawLabels.map((l) => (l === 'monitoring' ? 'rebalancing' : l));
+                // Đa tag: ưu tiên hiển thị theo category đang filter, fallback tag đầu hợp lệ
+                const firstCareer = normalizedLabels.find((l) => ['health_factor', 'rebalancing', 'grid', 'yield'].includes(l)) as CareerCategory | undefined;
+                const displayCareer = (selectedCategory !== 'all' && normalizedLabels.includes(selectedCategory) ? selectedCategory : (firstCareer || 'rebalancing')) as CareerCategory;
+                const career = displayCareer;
                 const spriteSrc = getPixelSprite(career);
                 const isCompareChecked = Boolean(
                   selectedForCompare.find((a) => a.agentId === agent.agentId)
@@ -550,7 +613,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 const totalScore = Number(rawStats.totalScore || 0);
                 const feedbacks = rawStats.totalFeedbacks ?? 0;
                 const isRecommended =
-                  walletContext.hasEmergencyShortfall && career === 'health_factor';
+                  walletContext.hasEmergencyShortfall && normalizedLabels.includes('health_factor');
 
                 return (
                   <div
@@ -564,9 +627,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       <div className="bg-[#FF4365] text-white px-2 py-0.5 text-[8px] font-mono-tech font-black flex items-center justify-between mb-2">
                         <span className="flex items-center space-x-1">
                           <Flame className="w-3 h-3 fill-white" />
-                          <span>RECOMMENDED SHIELD FOR YOUR WALLET (HF: {walletContext.healthFactor.toFixed(2)})</span>
+                          <span>Recommended for your wallet (HF: {walletContext.healthFactor.toFixed(2)})</span>
                         </span>
-                        <span>TOP SHIELD</span>
+                        <span>Top pick</span>
                       </div>
                     )}
 
@@ -588,21 +651,24 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
                             <div>
                             <div className="flex items-center space-x-1.5 flex-wrap">
-                              {(agent.labels && agent.labels.length > 0 ? agent.labels : [career]).map((tag) => (
+                              {(normalizedLabels.length > 0 ? normalizedLabels : [career]).map((tag) => {
+                                const label = tag === 'health_factor' ? 'HEALTH FACTOR MONITORING' : tag === 'rebalancing' ? 'REBALANCING' : tag === 'grid' ? 'GRID TRADING' : tag === 'yield' ? 'YIELD OPTIMISATION' : (tag as string).toUpperCase();
+                                return (
                                 <span
                                   key={tag}
                                   className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 font-mono-tech"
                                 >
-                                  {tag.toUpperCase()}
+                                  {label}
                                 </span>
-                              ))}
+                                );
+                              })}
                               <span
                                 className={`w-2 h-2 rounded-full border border-[#121212] ${
-                                  agent.hireable ? 'bg-[#00F59B]' : 'bg-[#A0A0A0]'
+                                  agent.hireable && agent.active ? 'bg-[#00F59B]' : agent.reachable ? 'bg-[#FFE500]' : 'bg-[#A0A0A0]'
                                 }`}
                               />
                               <span className="font-mono-tech text-[9px] font-bold text-[#059669]">
-                                {agent.hireable ? 'ONLINE' : agent.reachable ? 'UNVERIFIED PAYMENT' : 'UNPROBED'}
+                                {agent.hireable && agent.active ? 'ONLINE' : agent.reachable ? 'REACHABLE' : !agent.active ? 'OFFLINE' : 'UNPROBED'}
                               </span>
                             </div>
 
@@ -685,11 +751,22 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                           FULL SPEC
                         </button>
                         <button
-                          onClick={() => setAgentToHire(agent)}
-                          className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-xs px-3.5 py-1 flex items-center space-x-1 hover:bg-[#FFE500]"
+                          onClick={() => {
+                            // Đa tag: nếu đang filter 1 category thì hire theo category đang filter, ngược lại theo tag đầu
+                            const normalized = (agent.labels || []).map((l) => (l === 'monitoring' ? 'rebalancing' : l)) as CareerCategory[];
+                            const cat = selectedCategory !== 'all' && normalized.includes(selectedCategory) ? selectedCategory : (normalized[0] as CareerCategory) || 'rebalancing';
+                            setHireCategory(cat);
+                            setAgentToHire(agent);
+                          }}
+                          disabled={!agent.hireable}
+                          className={`neo-btn font-display font-black text-xs px-3.5 py-1 flex items-center space-x-1 ${
+                            agent.hireable
+                              ? 'bg-[#00F59B] text-[#121212] hover:bg-[#FFE500]'
+                              : 'bg-[#E5E0D5] text-[#8A8A8A] cursor-not-allowed'
+                          }`}
                         >
                           <Zap className="w-3.5 h-3.5 fill-[#121212]" />
-                          <span>HIRE AGENT</span>
+                          <span>{agent.hireable ? 'HIRE AGENT' : 'NOT HIREABLE'}</span>
                         </button>
                       </div>
                     </div>
@@ -741,16 +818,25 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           agent1={selectedForCompare[0]}
           agent2={selectedForCompare[1]}
           onClose={() => setShowCompareModal(false)}
-          onSelectToHire={(agent) => setAgentToHire(agent)}
+          onSelectToHire={(agent) => {
+            const normalized = (agent.labels || []).map((l) => (l === 'monitoring' ? 'rebalancing' : l)) as CareerCategory[];
+            const cat = selectedCategory !== 'all' && normalized.includes(selectedCategory) ? selectedCategory : (normalized[0] as CareerCategory) || 'rebalancing';
+            setHireCategory(cat);
+            setAgentToHire(agent);
+          }}
         />
       )}
 
-      {/* Hire Modal */}
+      {/* Hire Modal — HIRE giữ nguyên khi chưa thuê, ACTIVATE khi đã active được xử lý ở BottomBar/AgentHouse */}
       {agentToHire && (
         <HireModal
           agent={agentToHire}
+          forcedCategory={hireCategory}
           buyerAddress={buyerAddress}
-          onClose={() => setAgentToHire(null)}
+          onClose={() => {
+            setAgentToHire(null);
+            setHireCategory(null);
+          }}
           onConfirmHire={onHireAgent}
           network={network}
         />

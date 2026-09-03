@@ -25,44 +25,44 @@ interface ChamberConfig {
 
 const CHAMBERS: ChamberConfig[] = [
   {
-    id: 'monitoring',
-    name: 'WATCHTOWER OBSERVATORY',
-    subname: 'Mempool Radar & Threat Telemetry',
+    id: 'rebalancing',
+    name: 'Rebalancing',
+    subname: 'Manages LP ranges, resets positions automatically',
     themeColor: '#38BDF8',
     accentBg: '#E0F2FE',
-    decorations: ['🔭 Prism Telescope Array', '📡 Pulsing Mempool Radar', '🗺️ Whale Liquidity Map'],
-    description: 'Autonomous eye observing frontrunning vectors & abnormal gas spikes on BSC.',
-    chamberCode: 'CHAMBER.01',
+    decorations: ['🔄 PancakeSwap V3 LP Range', '📐 Concentrated Liquidity', '⚖️ Auto Reset Position'],
+    description: 'Manages LP ranges, resets positions automatically.',
+    chamberCode: 'REBAL',
   },
   {
     id: 'grid',
-    name: 'GRID STRATEGY FORGE',
-    subname: 'PancakeSwap V3 Cogwork Machinery',
+    name: 'Grid Trading',
+    subname: 'Places and manages automated grid orders',
     themeColor: '#FF7828',
     accentBg: '#FFEDD5',
-    decorations: ['📐 Tick Blueprint Drafting Table', '⚙️ Precision Clockwork Gears', '📊 Dynamic Limit Abacus'],
-    description: 'Calculates dynamic geometric bounds to maximize fee collection and minimize impermanent loss.',
-    chamberCode: 'CHAMBER.02',
+    decorations: ['📊 Grid Order Ladder', '⚙️ Market-Making Engine', '📈 DCA Automation'],
+    description: 'Places and manages automated grid orders.',
+    chamberCode: 'GRID',
   },
   {
     id: 'health_factor',
-    name: 'HEALTH FACTOR CITADEL',
-    subname: 'Venus Protocol Collateral Anvil',
+    name: 'Health Factor Monitoring',
+    subname: 'Protects lending positions from liquidation',
     themeColor: '#FF4365',
     accentBg: '#FFE4E8',
-    decorations: ['🐂 Heavy Molten Bull Brazier', '🔨 Runic Liquidation Hammer', '⏱️ Critical Risk Manometer'],
-    description: 'Guards collateral ratios against liquidations with instant defensive flash rebalances.',
-    chamberCode: 'CHAMBER.03',
+    decorations: ['🛡️ Venus Collateral Shield', '📉 Health Factor Guard', '⚠️ Liquidation Protection'],
+    description: 'Protects lending positions from liquidation.',
+    chamberCode: 'HEALTH',
   },
   {
     id: 'yield',
-    name: 'YIELD GREENHOUSE',
-    subname: 'Golden Sprout Hydroponics',
+    name: 'Yield Optimisation',
+    subname: 'Routes liquidity to the highest available APR',
     themeColor: '#00F59B',
     accentBg: '#D1FAE5',
-    decorations: ['🌱 Sprouting Money Seedbeds', '🍯 Pure Yield Honey Cisterns', '💧 Auto-Compounding Drip'],
-    description: 'Sweeps idle stablecoins and harvests optimal compound yield across audited BSC vaults.',
-    chamberCode: 'CHAMBER.04',
+    decorations: ['💰 Top APR Vaults', '🌱 Idle Stablecoin Routing', '🔄 Auto-Compounding'],
+    description: 'Routes liquidity to the highest available APR.',
+    chamberCode: 'YIELD',
   },
 ];
 
@@ -78,34 +78,38 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   const [activeWorkerIndex, setActiveWorkerIndex] = useState<Record<string, number>>({});
 
   const getHiresForChamber = (cat: CareerCategory): HireData[] => {
-    return hires.filter((h) => h.catalog === cat);
+    return hires.filter((h) => {
+      const c = (h.catalog || 'rebalancing') as string;
+      const normalized = c === 'monitoring' ? 'rebalancing' : c;
+      return normalized === cat;
+    });
   };
 
   return (
     <div className="w-full h-[calc(100vh-120px)] min-h-[550px] bg-[#F4F0EA] p-3 sm:p-5 flex flex-col justify-between select-none overflow-hidden editorial-grid">
       {/* Editorial Header */}
-      <div className="flex items-center justify-between bg-[#FFFFFF] border-2 border-[#121212] neo-shadow-sm px-4 py-2.5 z-20 shrink-0">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 bg-[#FFE500] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center font-bold">
-            <Cpu className="w-4 h-4 text-[#121212]" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="neo-badge bg-[#FAF7F0] text-[#121212] text-[9px] px-1.5 py-0.2">
-                WORK.CONSOLE
-              </span>
-              <span className="font-display font-black text-xs sm:text-sm text-[#121212] tracking-tight">
-                LANS SANCTUARY // 4 AUTONOMOUS WORK CHAMBERS
+        <div className="flex items-center justify-between bg-[#FFFFFF] border-2 border-[#121212] neo-shadow-sm px-4 py-2.5 z-20 shrink-0">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 bg-[#FFE500] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center font-bold">
+              <Cpu className="w-4 h-4 text-[#121212]" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="neo-badge bg-[#FAF7F0] text-[#121212] text-[9px] px-1.5 py-0.2">
+                  MY AGENTS
+                </span>
+                <span className="font-display font-black text-xs sm:text-sm text-[#121212] tracking-tight">
+                  Active Agents by Category
+                </span>
+              </div>
+              <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
+                Track status and manage your active agents
               </span>
             </div>
-            <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-              Real-time on-chain execution and job lifecycle controller
-            </span>
           </div>
-        </div>
 
         <div className="flex items-center space-x-2 font-mono-tech text-xs">
-          <span className="text-[#6A6A6A] hidden sm:inline">PORTFOLIO HEALTH:</span>
+          <span className="text-[#6A6A6A] hidden sm:inline">Portfolio health factor:</span>
           <span
             className={`neo-badge px-2 py-0.5 text-xs font-black ${
               healthFactor < 1.15
@@ -210,7 +214,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                           : 'bg-[#FF4365] text-white'
                       }`}
                     >
-                      STATE: {hire.state.toUpperCase()}
+                      Status: {hire.state.toUpperCase()}
                     </span>
                   )}
                 </div>
@@ -236,13 +240,13 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     <div className="flex flex-col items-center relative">
                       {hire.state === 'submitted' && (
                         <div className="neo-badge bg-[#FFE500] text-[#121212] text-[8px] px-1.5 py-0.5 mb-1 animate-bounce font-black">
-                          ✓ PROOF READY
+                          ✓ PROOF SUBMITTED
                         </div>
                       )}
 
                       {isAlert && (
                         <div className="neo-badge bg-[#FF4365] text-white text-[8px] px-1.5 py-0.5 mb-1 font-black animate-pulse">
-                          ! SHORTFALL ALERT !
+                          ! HEALTH FACTOR LOW !
                         </div>
                       )}
 
@@ -270,22 +274,22 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                         onClick={() => setSelectedJobToInspect(hire)}
                         className="neo-btn bg-[#FAF7F0] text-[#121212] hover:bg-[#FFE500] font-mono-tech text-[8px] font-bold px-2 py-0.5 mt-1"
                       >
-                        INSPECT JOB
+                        VIEW DETAILS
                       </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center text-center p-2">
                       <div className="w-12 h-12 border-2 border-dashed border-[#121212] bg-[#F4F0EA] flex items-center justify-center mb-1">
-                        <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold">VACANT</span>
+                        <span className="font-mono-tech text-[9px] text-[#8A8A8A] font-bold">Empty</span>
                       </div>
-                      <span className="font-mono-tech text-[10px] text-[#6A6A6A] mb-1.5">
-                        No active worker
+                       <span className="font-mono-tech text-[10px] text-[#6A6A6A] mb-1.5">
+                        No active agent
                       </span>
                       <button
                         onClick={onNavigateMarket}
                         className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1"
                       >
-                        + HIRE AGENT
+                        Browse Marketplace
                       </button>
                     </div>
                   )}
@@ -296,16 +300,16 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
               {hire && (
                 <div className="flex items-center justify-between mt-2.5 pt-2 border-t-2 border-[#121212] text-xs font-mono-tech">
                   <span className="text-[#6A6A6A]">
-                    BUDGET: <strong className="text-[#121212] font-black">{hire.budgetU} $U</strong> ({hire.rail.toUpperCase()})
+                    Budget: <strong className="text-[#121212] font-black">{hire.budgetU} $U</strong> ({hire.rail.toUpperCase()})
                   </span>
 
                   <div className="flex items-center space-x-1.5">
                     <button
                       onClick={onNavigateMarket}
                       className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] font-mono-tech text-[9px] px-2 py-0.5 font-bold"
-                      title="Hire an additional agent in this category"
+                      title="Activate an additional agent in this category"
                     >
-                      + HIRE MORE
+                      + ACTIVATE MORE
                     </button>
 
                     {hire.state === 'funded' && (
@@ -313,7 +317,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                         onClick={() => onSyncJobState(hire.id, 'running', 'Agent listening to live BSC blocks')}
                         className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-[10px] px-2.5 py-0.5"
                       >
-                        TRIGGER RUN
+                        START
                       </button>
                     )}
 
@@ -323,7 +327,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                           onSyncJobState(
                             hire.id,
                             'submitted',
-                            'Agent dispatched defensive rebalance payload to BSC'
+                            'Agent submitted proof of work to BSC'
                           )
                         }
                         className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-0.5"
@@ -338,12 +342,12 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                           onSyncJobState(
                             hire.id,
                             'paid',
-                            'Buyer released escrow payment to agent upon proof verification'
+                            'Buyer released payment to agent upon proof verification'
                           )
                         }
                         className="neo-btn bg-[#38BDF8] text-[#121212] font-display font-black text-[10px] px-2.5 py-0.5"
                       >
-                        RELEASE ESCROW
+                        RELEASE PAYMENT
                       </button>
                     )}
                   </div>
@@ -361,10 +365,10 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
             <div className="flex items-center justify-between border-b-2 border-[#121212] pb-3 mb-4">
               <div className="flex items-center space-x-2">
                 <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">
-                  CONTRACT
+                  Details
                 </span>
                 <h3 className="font-display font-black text-sm text-[#121212]">
-                  JOB AUDIT: {selectedJobToInspect.jobId}
+                  Job: {selectedJobToInspect.jobId}
                 </h3>
               </div>
               <button
@@ -377,22 +381,22 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
 
             <div className="space-y-2.5 font-mono-tech text-xs text-[#121212]">
               <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 space-y-1.5">
-                <p><strong>Agent Identifier:</strong> {selectedJobToInspect.agentId}</p>
-                <p><strong>Career Discipline:</strong> {selectedJobToInspect.catalog}</p>
-                <p><strong>Payment Rail:</strong> {selectedJobToInspect.rail.toUpperCase()}</p>
+                <p><strong>Agent:</strong> {selectedJobToInspect.agentId}</p>
+                <p><strong>Category:</strong> {selectedJobToInspect.catalog}</p>
+                <p><strong>Payment:</strong> {selectedJobToInspect.rail.toUpperCase()}</p>
                 <p>
-                  <strong>Current State:</strong>{' '}
+                  <strong>Status:</strong>{' '}
                   <span className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2">
                     {selectedJobToInspect.state.toUpperCase()}
                   </span>
                 </p>
-                <p><strong>Escrow Deposit:</strong> {selectedJobToInspect.budgetU} $U</p>
+                <p><strong>Deposit:</strong> {selectedJobToInspect.budgetU} $U</p>
                 <p><strong>Last Action:</strong> {selectedJobToInspect.lastAction || 'Deposit funded'}</p>
               </div>
 
               {selectedJobToInspect.txs && selectedJobToInspect.txs.length > 0 && (
                 <div className="mt-2">
-                  <span className="font-bold block mb-1">VERIFIED BSCSCAN PROOFS:</span>
+                  <span className="font-bold block mb-1">ON-CHAIN PROOFS:</span>
                   <div className="space-y-1">
                     {selectedJobToInspect.txs.map((tx, idx) => (
                       <a
@@ -416,7 +420,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                 onClick={() => setSelectedJobToInspect(null)}
                 className="neo-btn bg-[#121212] text-white font-mono-tech text-xs font-bold px-4 py-1.5"
               >
-                CLOSE AUDIT
+                CLOSE
               </button>
             </div>
           </div>

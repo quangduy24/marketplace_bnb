@@ -8,8 +8,8 @@ import { searchAgentsSemantic, fetchRecentAgents, sleep, mapRawToAgent } from '.
 import { store } from '../lib/supabase.ts';
 
 const CATEGORY_QUERIES = {
-  monitoring: ['monitoring agent', 'wallet watcher', 'price alert', 'position monitor'],
-  grid: ['grid trading', 'range trading bot', 'DCA grid'],
+  rebalancing: ['rebalancing agent', 'PancakeSwap V3 LP range', 'concentrated liquidity reset'],
+  grid: ['grid trading', 'range trading bot', 'DCA grid', 'limit ladder market-making'],
   health_factor: ['health factor', 'liquidation protection', 'Venus Aave loan agent'],
   yield: ['yield farming', 'APY vault', 'harvest allocate capital'],
 };
@@ -20,7 +20,7 @@ const MAX_TOTAL_LATEST = Number(process.env.MAX_TOTAL_LATEST ?? 1000);
 export async function runSemanticSync() {
   console.log('[Worker Sync] Starting targeted semantic crawl (capped at 200/category)...');
   const results: Record<string, number> = {
-    monitoring: 0,
+    rebalancing: 0,
     grid: 0,
     health_factor: 0,
     yield: 0,
@@ -90,7 +90,7 @@ export async function runIncrementalSync(maxPages = 20) {
 }
 
 export async function runLatestSync() {
-  // Convenience for 24h cron: fetch 1000 latest, then classify + probe to ensure filtered
+  // Convenience for 60m cron: fetch 1000 latest, then classify + probe to ensure filtered
   const inc = await runIncrementalSync(20);
   // Classify to apply labels filtering logic (excludes uncategorized)
   try {

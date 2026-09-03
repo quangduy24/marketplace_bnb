@@ -151,7 +151,7 @@ export const LansLogo: React.FC<LansLogoProps> = ({
         {showSubtitle && (
           <div className="font-mono-tech text-[9.5px] sm:text-[10.5px] text-[#4A4A4A] tracking-tight flex items-center space-x-1.5 leading-none mt-1 font-bold">
             <span className="text-[#FF4365] text-[8px]">▶</span>
-            <span>AUTONOMOUS AGENT SANCTUARY</span>
+            <span>AUTONOMOUS AGENTS</span>
             <span className="hidden lg:inline text-[#8A8A8A] font-normal">// ERC-8004</span>
           </div>
         )}

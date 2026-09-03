@@ -21,13 +21,13 @@ interface TopBarProps {
 }
 
 const LOCATION_NAMES: Record<AppView, { title: string; tag: string }> = {
-  story: { title: 'Origin Story', tag: 'LORE.01' },
-  town: { title: 'Town Plaza', tag: 'ZONE.00' },
-  marketplace: { title: 'Bazaar of 4 Stalls', tag: 'MKT.01' },
-  agents: { title: 'Agent Sanctuary', tag: 'WORK.02' },
-  history: { title: 'History', tag: 'HIS.03' },
-  profits: { title: 'Treasury & Profits', tag: 'FIN.04' },
-  demo: { title: 'Automated Demo', tag: 'TEST.05' },
+  story: { title: 'About', tag: 'ABOUT' },
+  town: { title: 'Home', tag: 'HOME' },
+  marketplace: { title: 'Marketplace', tag: 'MARKET' },
+  agents: { title: 'My Agents', tag: 'AGENTS' },
+  history: { title: 'History', tag: 'HISTORY' },
+  profits: { title: 'Performance', tag: 'RESULTS' },
+  demo: { title: 'Demo', tag: 'DEMO' },
 };
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -50,7 +50,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
     : null;
 
-  const loc = LOCATION_NAMES[currentView] || { title: 'Town', tag: 'SEC.00' };
+  const loc = LOCATION_NAMES[currentView] || { title: 'Home', tag: 'HOME' };
 
   return (
     <header className="w-full bg-[#FFFFFF] border-b-[2.5px] border-[#121212] px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between shadow-[0_3px_0px_rgba(18,18,18,0.06)] z-40 relative">
@@ -62,7 +62,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => onNavigate('town')}
           className="flex items-center space-x-3 group focus:outline-none text-left"
-          title="Return to Town Plaza"
+          title="Go to Home"
         >
           <LansLogo size="md" showSubtitle={false} className="xl:hidden" />
           <LansLogo size="md" showSubtitle={true} className="hidden xl:flex" />
@@ -84,11 +84,10 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => onNavigate('agents')}
           className="neo-btn bg-[#00F59B] text-[#121212] px-3 py-1.5 rounded-none flex items-center space-x-1.5 font-mono-tech text-xs font-bold"
-          title="Inspect Active Autonomous Work Chambers"
+          title="View active agents"
         >
           <Cpu className="w-3.5 h-3.5 text-[#121212]" />
-          <span className="text-[10px] tracking-wider uppercase">JOBS:</span>
-          <span className="bg-[#121212] text-[#00F59B] px-1.5 py-0.2 text-[10px] font-bold">
+          <span className="text-[10px] tracking-wider uppercase">Jobs:</span>          <span className="bg-[#121212] text-[#00F59B] px-1.5 py-0.2 text-[10px] font-bold">
             {activeJobsCount}
           </span>
         </button>
@@ -103,8 +102,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           }`}
           title={
             contextState.hasEmergencyShortfall
-              ? 'Critical liquidation risk! Click to deploy shield agent'
-              : 'Portfolio collateral is monitored'
+              ? 'Liquidation risk! Click to activate protection'
+              : 'Portfolio health factor is monitored'
           }
         >
           {contextState.hasEmergencyShortfall ? (
@@ -113,7 +112,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <AlertTriangle className="w-3.5 h-3.5 text-[#FF7828]" />
           )}
           <span className="text-[10px] tracking-wider uppercase">
-            {contextState.hasEmergencyShortfall ? 'DEFENSE:' : 'HEALTH:'}
+            {contextState.hasEmergencyShortfall ? 'RISK:' : 'HEALTH FACTOR:'}
           </span>
           <span
             className={`px-1.5 py-0.2 text-[10px] font-bold ${

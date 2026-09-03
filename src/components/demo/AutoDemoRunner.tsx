@@ -24,71 +24,71 @@ const DEMO_TIMELINE: DemoStep[] = [
   {
     startSec: 0,
     endSec: 17,
-    title: '1 — PLAZA • Town Map',
-    badge: 'PLAZA',
+    title: '1 — Home • Overview',
+    badge: 'HOME',
     targetView: 'town',
-    intro: 'Plaza is the pixel town map — the central navigation hub. From here you see the full LANS overview and travel to any area.',
+    intro: 'Home is the overview map — the central navigation hub. From here you see the full LANS overview and travel to any area.',
     operations: [
       'Move character (WASD / click) around the square',
-      'Hover each agent house to view status: ACTIVE / reachable / hireable',
-      'Click 4 stalls: Watchtower · Grid Workshop · Citadel · Greenhouse to filter Market',
-      'Click Market / Sanctuary gate to jump to the corresponding area',
+      'Hover each house to view status: active / reachable / hireable',
+      'Click 4 categories: Rebalancing · Grid Trading · Health Factor Monitoring · Yield Optimisation to filter Market',
+      'Click Marketplace / My Agents gate to jump to the corresponding area',
     ],
   },
   {
     startSec: 17,
     endSec: 37,
-    title: '2 — MARKET • Bazaar of Agents',
+    title: '2 — Marketplace • Browse Agents',
     badge: 'MARKET',
     targetView: 'marketplace',
-    intro: 'Market lists real verified agents synced from on-chain. Every card uses live data: price, score, and rail X402/ERC-8183/A2A.',
+    intro: 'Marketplace lists real verified agents synced from on-chain. Every card uses live data: price, score, and rail X402/ERC-8183/A2A.',
     operations: [
-      'Filter by tag: use 4 stalls or dropdown ALL / MONITORING / GRID / HEALTH_FACTOR / YIELD',
-      'Enable VERIFIED & HIREABLE ONLY to show only probed hireable agents',
+      'Filter by category: use 4 cards or dropdown ALL / REBALANCING / GRID TRADING / HEALTH FACTOR MONITORING / YIELD OPTIMISATION',
+      'Enable VERIFIED ONLY to show only probed hireable agents',
       'Search by name/description, view cards: price $U/hr (or —), ★ score, status ONLINE/UNVERIFIED',
-      'Select 2 agents → VIEW COMPARISON to compare hourly rate, endpoint, and win rate; click FULL SPEC to view tokenId/chain',
-      'Click HIRE → choose package Trial 2h / Standard 24h / Weekly 168h, select rail X402/ERC-8183, Confirm Hire (recorded as pending, awaiting funding)',
+      'Select 2 agents → VIEW COMPARISON to compare hourly rate, endpoint, and win rate; click Details to view tokenId/chain',
+      'Click HIRE → choose package Trial 2h / Standard 24h / Weekly 168h, select rail X402/ERC-8183, HIRE (recorded as pending, awaiting funding)',
     ],
   },
   {
     startSec: 37,
     endSec: 58,
-    title: '3 — SANCTUARY • Work Chambers',
-    badge: 'SANCTUARY',
+    title: '3 — My Agents • Active Agents',
+    badge: 'AGENTS',
     targetView: 'agents',
-    intro: 'Sanctuary is the 4-chamber workspace for your hired squad. Each hire is a separate chamber with live status.',
+    intro: 'My Agents is the 4-category workspace for your active agents. Each hire is tracked by category with live status.',
     operations: [
-      'View Hired Squad on top — click slot to focus the corresponding chamber',
-      'Switch chambers: Monitoring / Grid / Health / Yield',
-      'Run job lifecycle: funded → click TRIGGER RUN → running → SUBMIT PROOF → submitted → RELEASE ESCROW → paid',
-      'Open JOB AUDIT to view agentId, budgetU, lastAction, and BscScan tx (or — pending on-chain tx)',
+      'View Active Agents on top — click slot to focus the corresponding category',
+      'Switch categories: Rebalancing / Grid Trading / Health Factor Monitoring / Yield Optimisation',
+      'Run job lifecycle: funded → click START → running → SUBMIT PROOF → submitted → RELEASE PAYMENT → paid',
+      'Open Details to view agentId, budgetU, lastAction, and explorer tx (or — pending on-chain tx)',
     ],
   },
   {
     startSec: 58,
     endSec: 74,
-    title: '4 — LOGBOOK • Verified Escrow Ledger',
-    badge: 'LOGBOOK',
+    title: '4 — History • Transaction History',
+    badge: 'HISTORY',
     targetView: 'history',
-    intro: 'Logbook is the transparent escrow ledger: every hire, status, budget, and proof is stored on-chain.',
+    intro: 'History is the transparent ledger: every hire, status, budget, and proof is stored on-chain.',
     operations: [
-      'View escrow table: Agent / Discipline / Rail / Status / Deposit / BscScan Proof / Action',
-      'When no tx exists: shows — pending on-chain tx (no more fake hash 0x7a3e…)',
+      'View table: Agent / Category / Payment / Status / Deposit / Explorer Proof / Action',
+      'When no tx exists: shows — pending on-chain tx',
       'When tx exists: click link to testnet.bscscan.com/tx/{hash} or bscscan.com/tx/{hash} per chainId',
-      'Click Action to refocus the chamber in Sanctuary',
+      'Click Action to open in My Agents',
     ],
   },
   {
     startSec: 74,
     endSec: 90,
-    title: '5 — TREASURY • Net Yield & Alpha',
-    badge: 'TREASURY',
+    title: '5 — Performance • Portfolio',
+    badge: 'PERFORMANCE',
     targetView: 'profits',
-    intro: 'Treasury aggregates performance: only counts from real hires, showing Awaiting on-chain proof until proof exists.',
+    intro: 'Performance aggregates results: only counts from real hires, showing Awaiting on-chain proof until proof exists.',
     operations: [
       'View 3 boxes: Total Expense (sum of budgetU), Value Defended (0 until proof), and Net Alpha',
-      'Each discipline card: when not hired → VACANT + VISIT BAZAAR STALL button; when hired → shows contracts count + spent on this',
-      'Click HIRE ANOTHER to return to Market and hire more — unlimited squad',
+      'Each category card: when no agent → No active agent + Browse Marketplace button; when active → shows contracts count + spent on this',
+      'Click Activate more to return to Marketplace and hire more — unlimited agents',
     ],
   },
 ];
@@ -128,9 +128,9 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   const mockAgents = [
-    { name: 'Aegis Sentinel', price: '0.42', score: '4.8', tag: 'MONITORING', color: '#38BDF8', sprite: 'monitoring' as const },
-    { name: 'Vulcan Forge', price: '0.30', score: '4.9', tag: 'HEALTH_FACTOR', color: '#FF4365', sprite: 'health_factor' as const },
-    { name: 'Yield Sprout', price: '0.18', score: '4.6', tag: 'YIELD', color: '#00F59B', sprite: 'yield' as const },
+    { name: 'Aegis Rebalancing', price: '0.42', score: '4.8', tag: 'REBALANCING', color: '#38BDF8', sprite: 'rebalancing' as const },
+    { name: 'Vulcan Health', price: '0.30', score: '4.9', tag: 'HEALTH_FACTOR', color: '#FF4365', sprite: 'health_factor' as const },
+    { name: 'Yield Optimiser', price: '0.18', score: '4.6', tag: 'YIELD', color: '#00F59B', sprite: 'yield' as const },
   ];
 
   return (
@@ -190,11 +190,11 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
               {stepIndex === 0 && (
                 <motion.div key="plaza-vis" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-xl">
                   <div className="grid grid-cols-2 gap-6">
-                    {[
-                      { id: 'health_factor', label: 'Vulcan Citadel', accent: '#FF4365', sprite: 'health_factor' as const, pos: '2,3' },
-                      { id: 'yield', label: 'Greenhouse', accent: '#00F59B', sprite: 'yield' as const, pos: '1,4' },
-                      { id: 'monitoring', label: 'Watchtower', accent: '#38BDF8', sprite: 'monitoring' as const, pos: '3,1' },
-                      { id: 'grid', label: 'Grid Workshop', accent: '#FF8C00', sprite: 'grid' as const, pos: '4,2' },
+                      {[
+                      { id: 'health_factor', label: 'Health Factor Monitoring', accent: '#FF4365', sprite: 'health_factor' as const, pos: '2,3' },
+                      { id: 'yield', label: 'Yield Optimisation', accent: '#00F59B', sprite: 'yield' as const, pos: '1,4' },
+                      { id: 'rebalancing', label: 'Rebalancing', accent: '#38BDF8', sprite: 'rebalancing' as const, pos: '3,1' },
+                      { id: 'grid', label: 'Grid Trading', accent: '#FF8C00', sprite: 'grid' as const, pos: '4,2' },
                     ].map((h, i) => (
                       <motion.button key={h.id} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.08 }} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => onNavigate('marketplace')} className="neo-card p-6 border-2 border-[#121212] bg-[#FAF7F0] text-left group">
                         <div className="flex items-center justify-between mb-2">
@@ -231,7 +231,7 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
                     <span className="neo-badge bg-[#00F59B] text-[#121212] text-[9px] px-2 py-1 font-bold">LIVE</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-3">
-                    {['ALL','MONITORING','GRID','HEALTH_FACTOR','YIELD'].map(f => (
+                    {['ALL','REBALANCING','GRID','HEALTH_FACTOR','YIELD'].map(f => (
                       <button key={f} onClick={() => setDemoMarketFilter(f)} className={`px-2 py-1 text-[9px] font-mono-tech font-bold border-2 border-[#121212] neo-btn ${demoMarketFilter===f ? 'bg-[#121212] text-white' : 'bg-white text-[#121212] hover:bg-[#FFE500]'}`}>{f}</button>
                     ))}
                     <button className="ml-auto flex items-center space-x-1 neo-badge bg-[#FAF7F0] border border-[#121212] text-[9px] px-2 py-1"><Filter className="w-3 h-3" /><span>VERIFIED ONLY</span></button>
@@ -259,7 +259,7 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
               {stepIndex === 2 && (
                 <motion.div key="sanc-vis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-md flex flex-col items-center">
                   <div className="grid grid-cols-4 gap-4 w-full mb-5">
-                    {(['monitoring','grid','health_factor','yield'] as const).map(k => (
+                    {(['rebalancing','grid','health_factor','yield'] as const).map(k => (
                       <div key={k} className="neo-card bg-[#FAF7F0] border-2 border-[#121212] p-5 text-center">
                         <div className="w-3.5 h-3.5 rounded-full bg-[#00F59B] border border-[#121212] mx-auto animate-pulse mb-2" />
                         <img src={getPixelSprite(k)} alt={k} className="w-16 h-16 mx-auto object-contain" />
@@ -268,16 +268,16 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
                   </div>
                   <motion.div key={demoSanctuaryState} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full neo-card bg-[#FAF7F0] border-2 border-[#121212] p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-display font-black text-xs">Chamber #2 — Vulcan</span>
+                      <span className="font-display font-black text-xs">Agent — Active</span>
                       <span className={`neo-badge text-[9px] px-2 py-0.5 font-bold border border-[#121212] ${demoSanctuaryState==='paid' ? 'bg-[#00F59B]' : demoSanctuaryState==='submitted' ? 'bg-[#FFE500]' : demoSanctuaryState==='running' ? 'bg-[#38BDF8] text-white' : 'bg-[#121212] text-white'}`}>{demoSanctuaryState.toUpperCase()}</span>
                     </div>
                     <div className="h-1 bg-white border border-[#121212] mb-2">
                       <motion.div className="h-full bg-[#00F59B]" animate={{ width: demoSanctuaryState==='funded'?'25%':demoSanctuaryState==='running'?'50%':demoSanctuaryState==='submitted'?'75%':'100%' }} />
                     </div>
                     <div className="grid grid-cols-3 gap-1">
-                      <button onClick={() => setDemoSanctuaryState('running')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='running'?'bg-[#38BDF8] text-white':'bg-white'}`}>TRIGGER RUN</button>
+                      <button onClick={() => setDemoSanctuaryState('running')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='running'?'bg-[#38BDF8] text-white':'bg-white'}`}>START</button>
                       <button onClick={() => setDemoSanctuaryState('submitted')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='submitted'?'bg-[#FFE500]':'bg-white'}`}>SUBMIT PROOF</button>
-                      <button onClick={() => setDemoSanctuaryState('paid')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='paid'?'bg-[#00F59B]':'bg-white'}`}>RELEASE</button>
+                      <button onClick={() => setDemoSanctuaryState('paid')} className={`py-1 text-[8px] font-bold border border-[#121212] ${demoSanctuaryState==='paid'?'bg-[#00F59B]':'bg-white'}`}>RELEASE PAYMENT</button>
                     </div>
                   </motion.div>
                   <span className="font-mono-tech text-[10px] text-[#6A6A6A] mt-2">Click the buttons above — then GO TO /agents</span>
@@ -291,9 +291,9 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
                       <span className="flex-1">Agent</span><span className="w-16">Status</span><span className="w-20 text-[#FFE500]">Proof</span>
                     </div>
                     {[
-                      { name: 'Vulcan Forge', status: 'paid', tx: '0x7a3e…c23f' },
-                      { name: 'Aegis Sentinel', status: 'submitted', tx: '0x9b12…8a01' },
-                      { name: 'Yield Sprout', status: 'funded', tx: '— pending' },
+                      { name: 'Health Monitor', status: 'paid', tx: '0x7a3e…c23f' },
+                      { name: 'Rebalancing Bot', status: 'submitted', tx: '0x9b12…8a01' },
+                      { name: 'Yield Optimiser', status: 'funded', tx: '— pending' },
                     ].map(row => (
                       <div key={row.name} className="flex items-center px-2 py-1.5 border-b border-[#E5E0D5] font-mono-tech text-[10px]">
                         <span className="flex-1 font-bold truncate">{row.name}</span>
@@ -320,13 +320,13 @@ export const AutoDemoRunner: React.FC<AutoDemoRunnerProps> = ({ onNavigate }) =>
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="font-display font-black text-2xl">$42.00</motion.div>
                     </motion.div>
                     <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="bg-[#FFE500] border-2 border-[#121212] p-5 text-center">
-                      <div className="font-mono-tech text-[9px]">NET ALPHA</div>
+                      <div className="font-mono-tech text-[9px]">NET RESULT</div>
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="font-display font-black text-2xl text-[#00F59B]">+$29.60</motion.div>
                     </motion.div>
                   </div>
                   <div className="mt-3 flex gap-2">
                     <span className="neo-badge bg-white border border-[#121212] text-[9px] px-2 py-1">2 contracts active</span>
-                    <span className="neo-badge bg-[#121212] text-white text-[9px] px-2 py-1">HIRE ANOTHER →</span>
+                    <span className="neo-badge bg-[#121212] text-white text-[9px] px-2 py-1">Activate more →</span>
                   </div>
                   <span className="font-mono-tech text-[10px] text-[#6A6A6A] mt-2">lans.work/treasury</span>
                 </motion.div>

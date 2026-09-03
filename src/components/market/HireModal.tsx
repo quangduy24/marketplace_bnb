@@ -11,6 +11,7 @@ import {
 
 interface HireModalProps {
   agent: AgentData;
+  forcedCategory?: CareerCategory | null;
   buyerAddress?: string;
   onClose: () => void;
   onConfirmHire: (hirePayload: {
@@ -26,24 +27,26 @@ interface HireModalProps {
 
 export const HireModal: React.FC<HireModalProps> = ({
   agent,
+  forcedCategory,
   buyerAddress,
   onClose,
   onConfirmHire,
   network,
 }) => {
-  const career = (agent.labels?.[0] || 'monitoring') as CareerCategory;
+  const rawCareer = forcedCategory || (agent.labels?.[0] || 'rebalancing') as string;
+  const career = (rawCareer === 'monitoring' ? 'rebalancing' : rawCareer) as CareerCategory;
   const spriteSrc = getPixelSprite(career);
   const hourlyRate = Number(agent.rawJson?.hourlyCostU || 0.25);
 
-  // Friendly human task descriptions in English
+  // Friendly human task descriptions in English — 4 categories
   const defaultFriendlySummary =
     career === 'health_factor'
-      ? 'Continuously monitor Venus loan health factor and defend collateral against liquidations'
+      ? 'Protects lending positions from liquidation by monitoring health factor'
       : career === 'yield'
-      ? 'Auto-route idle stablecoins into top-yielding BSC vaults and auto-compound rewards'
+      ? 'Routes liquidity to the highest available APR and auto-compounds yield'
       : career === 'grid'
-      ? 'Dynamically balance PancakeSwap V3 LP ranges to capture maximum swap fee yield'
-      : '24/7 mempool & whale monitor with instant anomaly alerts';
+      ? 'Places and manages automated grid orders'
+      : 'Manages LP ranges, resets positions automatically';
 
   // Preset hiring packages for beginners
   const [selectedPlan, setSelectedPlan] = useState<'trial' | 'standard' | 'weekly' | 'custom'>('standard');
@@ -70,8 +73,8 @@ export const HireModal: React.FC<HireModalProps> = ({
     }
   };
 
-  const handleSignAndConfirm = async (isDemo = false) => {
-    if (!buyerAddress && !isDemo) {
+  const handleSignAndConfirm = async () => {
+    if (!buyerAddress) {
       setErrorMsg('Please connect your Web3 wallet before signing the agreement!');
       return;
     }
@@ -87,8 +90,8 @@ export const HireModal: React.FC<HireModalProps> = ({
         agentId: agent.agentId,
         catalog: career,
         rail,
-        budgetU: isDemo ? '0.00' : budgetU,
-        taskSummary: isDemo ? `[DEMO TRIAL] ${taskSummary}` : taskSummary,
+        budgetU,
+        taskSummary,
       });
 
       onClose();
@@ -119,7 +122,7 @@ export const HireModal: React.FC<HireModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="neo-badge bg-[#00F59B] text-[#121212] text-[9px] px-1.5 py-0.2 font-mono-tech font-black">
-                  SAFE AGENT HIRE
+                  SECURE HIRE
                 </span>
                 <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2 font-mono-tech font-bold">
                   ESCROW PROTECTED
@@ -150,7 +153,7 @@ export const HireModal: React.FC<HireModalProps> = ({
         <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 mb-3.5 neo-shadow-sm">
           <div className="flex items-center space-x-1.5 mb-1 font-display font-black text-xs text-[#121212]">
             <Sparkles className="w-3.5 h-3.5 text-[#00F59B] fill-[#121212]" />
-            <span>NEWCOMER PEACE OF MIND: 100% SMART CONTRACT ESCROW PROTECTION</span>
+            <span>HOW ESCROW WORKS: 100% SMART CONTRACT PROTECTION</span>
           </div>
           <p className="font-sans text-xs text-[#4A4A4A] leading-relaxed">
             Your funds are held securely inside an <strong>ERC-8183 escrow contract</strong> on BNB Chain. The agent is only compensated after verified cryptographic proof of work is submitted. You can cancel and withdraw any unused balance at any time!
@@ -160,7 +163,7 @@ export const HireModal: React.FC<HireModalProps> = ({
         {/* 3 Ready-to-Use Packages for Newcomers */}
         <div className="mb-3.5">
           <label className="block text-[10px] font-mono-tech font-black uppercase tracking-wider text-[#121212] mb-1.5">
-            1. SELECT YOUR DURATION PACKAGE:
+            1. CHOOSE DURATION:
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -179,7 +182,7 @@ export const HireModal: React.FC<HireModalProps> = ({
                 {(hourlyRate * 2).toFixed(2)} $U
               </div>
               <div className="font-sans text-[10px] text-[#6A6A6A] mt-0.5">
-                Quick safe test
+                Quick test
               </div>
             </button>
 
@@ -202,7 +205,7 @@ export const HireModal: React.FC<HireModalProps> = ({
                 {(hourlyRate * 24).toFixed(2)} $U
               </div>
               <div className="font-sans text-[10px] text-[#6A6A6A] mt-0.5">
-                Full 24-hr shield
+                24-hour coverage
               </div>
             </button>
 
@@ -234,7 +237,7 @@ export const HireModal: React.FC<HireModalProps> = ({
         {/* Task Summary in Natural Language */}
         <div className="mb-3">
           <label className="block text-[10px] font-mono-tech font-black uppercase tracking-wider text-[#121212] mb-1">
-            2. AGENT MISSION (PRE-CONFIGURED AUTO-DIRECTIVE):
+            2. TASK (WHAT THE AGENT WILL DO):
           </label>
           <input
             type="text"
@@ -252,7 +255,7 @@ export const HireModal: React.FC<HireModalProps> = ({
             className="text-[10px] font-mono-tech font-bold text-[#6A6A6A] hover:text-[#121212] flex items-center space-x-1"
           >
             <Info className="w-3 h-3" />
-            <span>{showAdvanced ? '[-] Hide advanced technical parameters' : '[+] Custom budget & settlement rail configuration (Pro)'}</span>
+            <span>{showAdvanced ? '[-] Hide advanced options' : '[+] Custom budget & payment method (Pro)'}</span>
           </button>
 
           {showAdvanced && (
@@ -286,7 +289,7 @@ export const HireModal: React.FC<HireModalProps> = ({
               </div>
 
               <div>
-                <span className="text-[9px] text-[#6A6A6A] block font-bold mb-1">SETTLEMENT ESCROW RAIL:</span>
+                <span className="text-[9px] text-[#6A6A6A] block font-bold mb-1">PAYMENT METHOD:</span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -324,7 +327,7 @@ export const HireModal: React.FC<HireModalProps> = ({
           </div>
           <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
-            <span>∞ Unlimited agent squad: hire and run as many concurrent agents as you need</span>
+            <span>Run unlimited agents at once</span>
           </div>
           <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -334,17 +337,6 @@ export const HireModal: React.FC<HireModalProps> = ({
 
         {/* Actions */}
         <div className="pt-2 border-t-2 border-[#121212] flex flex-col sm:flex-row items-center justify-between gap-2">
-          {/* Free Demo button for total beginners */}
-          <button
-            type="button"
-            onClick={() => handleSignAndConfirm(true)}
-            className="w-full sm:w-auto neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] font-mono-tech text-xs font-black px-3 py-2 flex items-center justify-center space-x-1 border border-[#121212]"
-            title="Experience the workflow with zero financial risk"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>TRY DEMO MODE (ZERO RISK)</span>
-          </button>
-
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
             <button
               type="button"
@@ -357,11 +349,11 @@ export const HireModal: React.FC<HireModalProps> = ({
             <button
               type="button"
               disabled={isSigning}
-              onClick={() => handleSignAndConfirm(false)}
+              onClick={() => handleSignAndConfirm()}
               className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-xs px-4 py-2 flex items-center justify-center space-x-1.5 hover:bg-[#FFE500]"
             >
               <Zap className="w-3.5 h-3.5 fill-[#121212]" />
-              <span>{isSigning ? 'SIGNING ESCROW...' : `CONFIRM HIRE (${budgetU} $U)`}</span>
+              <span>{isSigning ? 'CONFIRMING...' : `CONFIRM HIRE (${budgetU} $U)`}</span>
             </button>
           </div>
         </div>

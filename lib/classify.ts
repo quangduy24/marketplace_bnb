@@ -3,11 +3,11 @@
  * Strict categories: 'monitoring' | 'grid' | 'health_factor' | 'yield' | 'uncategorized'
  */
 
-export type CareerCategory = 'monitoring' | 'grid' | 'health_factor' | 'yield' | 'uncategorized';
+export type CareerCategory = 'rebalancing' | 'grid' | 'health_factor' | 'yield' | 'uncategorized';
 
 export const CAREER_KEYWORDS: Record<Exclude<CareerCategory, 'uncategorized'>, string[]> = {
-  monitoring: ['monitor', 'watch', 'alert', 'track wallet', 'position', 'whale'],
-  grid: ['grid', 'range trading', 'dca', 'limit ladder'],
+  rebalancing: ['rebalance', 'rebalancing', 'lp range', 'reset position', 'pancake', 'concentrated liquidity'],
+  grid: ['grid', 'range trading', 'dca', 'limit ladder', 'grid trading', 'market-making'],
   health_factor: ['health factor', 'liquidation', 'ltv', 'collateral', 'venus', 'aave'],
   yield: ['yield', 'apy', 'vault', 'farm', 'harvest', 'allocate'],
 };
@@ -63,9 +63,9 @@ export function classifyAgent(name?: string | null, description?: string | null)
 export function runClassificationUnitTests(): { passed: boolean; testResults: Array<{ name: string; expected: string; actual: string[]; ok: boolean }> } {
   const tests = [
     {
-      name: 'Test Monitoring: Whale watcher and wallet tracker',
-      input: { name: 'WhaleSentinel', desc: 'Real-time alert on large position and track wallet movements' },
-      expected: 'monitoring',
+      name: 'Test Rebalancing: PancakeSwap V3 LP range rebalancing',
+      input: { name: 'PancakeRebalancer', desc: 'Automatically rebalances LP range and resets PancakeSwap V3 concentrated liquidity positions' },
+      expected: 'rebalancing',
     },
     {
       name: 'Test Grid: Automated DCA limit ladder bot',

@@ -9,7 +9,7 @@
   "crons": [
     {
       "path": "/api/workers/sync?mode=incremental&maxPages=20",
-      "schedule": "0 2 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

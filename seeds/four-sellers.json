@@ -4,15 +4,15 @@
     "agentId": "watchtower-prime-01",
     "tokenId": "800401",
     "owner": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-    "name": "Aegis Watchtower Sentinel",
-    "description": "24/7 on-chain whale transaction monitor, sudden volatility tracking, and instant liquidation telemetry for BSC wallets.",
+    "name": "Aegis Rebalancing Bot",
+    "description": "Manages PancakeSwap V3 LP ranges and resets concentrated liquidity positions automatically to keep capital in range.",
     "imageUrl": "/sprites/agent-watchtower.svg",
     "agentUri": "https://agent.aegis-watchtower.villa/v1",
     "supportedProtocols": ["x402", "erc8183"],
     "x402Supported": true,
-    "labels": ["monitoring"],
+    "labels": ["rebalancing"],
     "labelConfidence": 1.0,
-    "labelEvidence": { "keywords": ["monitor", "watch", "alert", "track wallet", "whale"] },
+    "labelEvidence": { "keywords": ["rebalance", "lp range", "reset position", "pancake", "concentrated liquidity"] },
     "labelSource": "seed",
     "status": "registered",
     "active": true,
@@ -24,7 +24,7 @@
     "failureCount": 1,
     "rawJson": {
       "hourlyCostU": "0.15",
-      "specialization": "BSC Mempool & Whale Watch",
+      "specialization": "PancakeSwap V3 LP Rebalancing",
       "p99LatencyMs": 420,
       "reputationScore": 96
     }
@@ -34,15 +34,15 @@
     "agentId": "grid-master-02",
     "tokenId": "800402",
     "owner": "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
-    "name": "Chronos Dynamic Grid Bot",
-    "description": "High-frequency geometric limit ladder and PancakeSwap V3 out-of-range repositioning agent with automated range bounds.",
+    "name": "Chronos Grid Trading Bot",
+    "description": "Places and manages automated grid orders with dynamic limit ladders and market-making on PancakeSwap.",
     "imageUrl": "/sprites/agent-grid.svg",
     "agentUri": "https://agent.chronos-grid.villa/v1",
     "supportedProtocols": ["x402", "erc8183"],
     "x402Supported": true,
     "labels": ["grid"],
     "labelConfidence": 1.0,
-    "labelEvidence": { "keywords": ["grid", "range trading", "dca", "limit ladder"] },
+    "labelEvidence": { "keywords": ["grid", "grid trading", "range trading", "dca", "limit ladder"] },
     "labelSource": "seed",
     "status": "registered",
     "active": true,
@@ -54,7 +54,7 @@
     "failureCount": 2,
     "rawJson": {
       "hourlyCostU": "0.45",
-      "specialization": "PancakeSwap V3 & WBNB/USDT Grids",
+      "specialization": "Grid Trading & Market-Making",
       "p99LatencyMs": 310,
       "reputationScore": 94
     }
@@ -64,8 +64,8 @@
     "agentId": "forge-shield-03",
     "tokenId": "800403",
     "owner": "0x1234567890123456789012345678901234567890",
-    "name": "Vulcan Health Factor Guardian",
-    "description": "Autonomous Venus Protocol loan protector. Monitors collateral LTV ratio and automatically injects flash-collateral or unwinds debt.",
+    "name": "Vulcan Health Factor Monitor",
+    "description": "Protects lending positions from liquidation by monitoring Venus collateral health factor and defending positions automatically.",
     "imageUrl": "/sprites/agent-forge.svg",
     "agentUri": "https://agent.vulcan-guard.villa/v1",
     "supportedProtocols": ["x402", "erc8183"],
@@ -84,7 +84,7 @@
     "failureCount": 1,
     "rawJson": {
       "hourlyCostU": "0.30",
-      "specialization": "Venus Protocol HF >= 1.30 Defense",
+      "specialization": "Health Factor Monitoring & Liquidation Protection",
       "p99LatencyMs": 180,
       "reputationScore": 99
     }
@@ -94,8 +94,8 @@
     "agentId": "harvest-greenhouse-04",
     "tokenId": "800404",
     "owner": "0x9876543210987654321098765432109876543210",
-    "name": "Demeter APY Yield Harvester",
-    "description": "Automated idle stablecoin allocator across Venus, Thena, and Beefy Finance vaults. Compound auto-harvesting with minimal gas.",
+    "name": "Demeter Yield Optimiser",
+    "description": "Routes idle stablecoins to the highest available APR across audited BSC vaults and auto-compounds yield.",
     "imageUrl": "/sprites/agent-farm.svg",
     "agentUri": "https://agent.demeter-yield.villa/v1",
     "supportedProtocols": ["x402", "erc8183"],
@@ -114,7 +114,7 @@
     "failureCount": 2,
     "rawJson": {
       "hourlyCostU": "0.20",
-      "specialization": "Stablecoin Yield Optimization",
+      "specialization": "Yield Optimisation & APR Routing",
       "p99LatencyMs": 480,
       "reputationScore": 95
     }

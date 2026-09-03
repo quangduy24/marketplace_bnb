@@ -1,6 +1,6 @@
 {
   "name": "LANS",
-  "description": "LANS: 16-bit Autonomous AI Agent Marketplace & Sanctuary on BNB Smart Chain with ERC-8004 identity and ERC-8183 escrow.",
+  "description": "LANS: marketplace for autonomous DeFi agents on BNB Smart Chain with ERC-8004 identity and ERC-8183 escrow.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -14,6 +14,7 @@ import { runClassificationWorker } from './workers/classify.ts';
 import { runProbeWorker } from './workers/probe.ts';
 import { runClassificationUnitTests } from './lib/classify.ts';
 import { addSseClient, broadcast } from './lib/sync-broadcast.ts';
+import { searchAgentsSemantic, mapRawToAgent } from './lib/8004scan.ts';
 
 async function startServer() {
   const app = express();
@@ -50,20 +51,38 @@ async function startServer() {
 
   // List & Rank Agents with 2-Stage Recommendation Engine
   app.get('/api/agents', async (req, res) => {
-    const { category, activeOnly = 'true', verifiedOnly = 'false', wallet, q } = req.query;
+    const { category, activeOnly = 'true', verifiedOnly = 'false', includeUncategorized = 'false', live = 'false', wallet, q } = req.query;
     const isActiveOnly = activeOnly === 'true';
     const isVerifiedOnly = verifiedOnly === 'true';
+    const includeUncat = includeUncategorized === 'true';
     const categoryStr = (category as string) || 'all';
 
     // Stage 1: Hard SQL/Store filter (real DB when configured)
     // verifiedOnly adds reachable && hireable; default lists every active labeled agent.
-    let pool = await store.getAgents(isActiveOnly, categoryStr, isVerifiedOnly);
+    // includeUncategorized=true dùng cho search ngoài Image 1 để chạm 769 (bao gồm inactive & Other)
+    let pool = await store.getAgents(isActiveOnly, categoryStr, isVerifiedOnly, includeUncat);
 
-    // Search filter if provided
-    if (q && typeof q === 'string') {
+    // Live registry search (300k+ trên 8004scan) — khi user search Include inactive & Other để có nhiều kết quả hơn
+    if (live === 'true' && q && typeof q === 'string') {
+      try {
+        const liveRaw = await searchAgentsSemantic(String(q), 56, 50, 0);
+        const existingIds = new Set(pool.map((a: any) => a.agentId));
+        const fresh = liveRaw
+          .map((raw) => mapRawToAgent(raw))
+          .filter((a: any) => a && a.agentId && !existingIds.has(a.agentId)) as any[];
+        pool = [...pool, ...fresh];
+        const lower = q.toLowerCase();
+        pool = pool.filter(
+          (a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower))
+        );
+      } catch (err) {
+        console.warn('[LiveSearch] 8004scan search failed, falling back to local pool:', err);
+      }
+    } else if (q && typeof q === 'string') {
+      // Search filter — đa tag: tìm trong name/description/labels
       const lower = q.toLowerCase();
       pool = pool.filter(
-        (a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower)
+        (a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower))
       );
     }
 
@@ -74,11 +93,14 @@ async function startServer() {
     const wB = 1.0 - (wH + wS);
 
     const scoredAgents = pool.map((agent) => {
-      // 1. Heuristic Score based on career matching wallet urgent need
+      // 1. Heuristic Score — đa tag: lấy max heuristic trong các labels (1 agent có thể thuộc nhiều category)
       let heuristicScore = 0.5;
-      const firstLabel = agent.labels?.[0] as keyof typeof walletContext.heuristicScores;
-      if (firstLabel && walletContext.heuristicScores[firstLabel] !== undefined) {
-        heuristicScore = walletContext.heuristicScores[firstLabel];
+      const normalizedLabels = (agent.labels || []).map((l: string) => (l === 'monitoring' ? 'rebalancing' : l)) as (keyof typeof walletContext.heuristicScores)[];
+      if (normalizedLabels.length > 0) {
+        const scores = normalizedLabels
+          .map((lbl) => walletContext.heuristicScores[lbl])
+          .filter((v) => v !== undefined) as number[];
+        if (scores.length > 0) heuristicScore = Math.max(...scores);
       }
 
       // 2. Content / Quality Score
@@ -107,6 +129,7 @@ async function startServer() {
     res.json({
       agents: scoredAgents,
       total: scoredAgents.length,
+      liveSearched: live === 'true' && typeof q === 'string' && q.trim().length > 0,
       walletContext,
     });
   });
@@ -287,18 +310,22 @@ async function startServer() {
     console.log(`[Agent Villa] Server running on http://0.0.0.0:${PORT}`);
   });
 
-  // Background auto-sync: 24h for 1000 latest (filtered), immediate SSE broadcast after each sync
+  // Background auto-sync: every 60 min for 1000 latest (filtered), immediate SSE broadcast after each sync
   if (process.env.AUTO_SYNC !== 'false') {
-    const intervalMs = Number(process.env.SYNC_INTERVAL_MS ?? 86400000);
+    const intervalMs = Number(process.env.SYNC_INTERVAL_MS ?? 3600000); // 60 min
     setTimeout(async () => {
       try {
         const total = await store.countAgents();
         if (total === 0) {
           console.log('[AutoSync] Agents table empty — running initial semantic sync...');
-          await runSemanticSync();
-          broadcast({ type: 'agents-updated', mode: 'semantic', at: new Date().toISOString() });
+          const result = await runSemanticSync();
+          broadcast({ type: 'agents-updated', mode: 'semantic', result, at: new Date().toISOString() });
+          console.log('[AutoSync] Initial semantic sync done:', result);
         } else {
-          console.log(`[AutoSync] Agents table has ${total} rows — skipping initial sync.`);
+          console.log(`[AutoSync] Agents table has ${total} rows — running immediate latest sync (60m schedule)...`);
+          const result = await runLatestSync();
+          broadcast({ type: 'agents-updated', mode: 'latest', result, at: new Date().toISOString() });
+          console.log('[AutoSync] Immediate latest sync (1000) done:', result);
         }
       } catch (err) {
         console.warn('[AutoSync] Initial sync failed:', err);
@@ -308,11 +335,12 @@ async function startServer() {
         try {
           const result = await runLatestSync();
           broadcast({ type: 'agents-updated', mode: 'latest', result, at: new Date().toISOString() });
-          console.log('[AutoSync] 24h latest sync (1000) done:', result);
+          console.log('[AutoSync] 60m latest sync (1000) done:', result);
         } catch (err) {
           console.warn('[AutoSync] Interval sync failed:', err);
         }
       }, intervalMs);
+      console.log(`[AutoSync] Scheduled every ${intervalMs / 60000} min (SYNC_INTERVAL_MS=${intervalMs})`);
     }, 2000);
   }
 }

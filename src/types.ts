@@ -3,7 +3,7 @@
  * Autonomous Agent Sanctuary on BNB Chain
  */
 
-export type CareerCategory = 'monitoring' | 'grid' | 'health_factor' | 'yield';
+export type CareerCategory = 'rebalancing' | 'grid' | 'health_factor' | 'yield';
 
 export type JobState = 'funded' | 'running' | 'submitted' | 'paid' | 'rejected' | 'expired';
 
@@ -69,7 +69,7 @@ export interface WalletContextState {
   hasOutOfRangeLiquidity?: boolean;
   activeWhaleExposure?: boolean;
   heuristicScores?: {
-    monitoring: number;
+    rebalancing: number;
     grid: number;
     health_factor: number;
     yield: number;

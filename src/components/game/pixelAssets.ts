@@ -33,24 +33,24 @@ export function encodeSvg(svg: string): string {
 
 export function normalizeCareer(
   type: string | null | undefined
-): 'monitoring' | 'grid' | 'health_factor' | 'yield' | 'player' | 'npc_grey' {
-  if (!type) return 'monitoring';
+): 'rebalancing' | 'grid' | 'health_factor' | 'yield' | 'player' | 'npc_grey' {
+  if (!type) return 'rebalancing';
   const t = String(type).toLowerCase().replace(/[-_\s]/g, '');
   if (t.includes('grey') || t.includes('npc') || t.includes('inactive')) return 'npc_grey';
   if (t.includes('player') || t.includes('hunter') || t.includes('buyer')) return 'player';
   if (t.includes('health') || t.includes('factor') || t.includes('vulcan') || t.includes('forge') || t.includes('ltv') || t.includes('venus') || t.includes('shield')) {
     return 'health_factor';
   }
-  if (t.includes('grid') || t.includes('chronos') || t.includes('dca') || t.includes('ladder') || t.includes('pancake')) {
+  if (t.includes('grid') || t.includes('chronos') || t.includes('dca') || t.includes('ladder') || t.includes('gridtrading')) {
     return 'grid';
   }
   if (t.includes('yield') || t.includes('demeter') || t.includes('farm') || t.includes('harvest') || t.includes('apy') || t.includes('greenhouse')) {
     return 'yield';
   }
-  if (t.includes('monitor') || t.includes('watch') || t.includes('aegis') || t.includes('whale') || t.includes('mempool') || t.includes('radar')) {
-    return 'monitoring';
+  if (t.includes('rebalanc') || t.includes('pancake') || t.includes('concentrat') || t.includes('monitor') || t.includes('watch') || t.includes('aegis') || t.includes('whale') || t.includes('mempool') || t.includes('radar')) {
+    return 'rebalancing';
   }
-  return 'monitoring';
+  return 'rebalancing';
 }
 
 // Generates scalable crisp pixel SVGs for the 4 careers, player, and NPCs
@@ -61,8 +61,8 @@ export function getPixelSprite(type: string, state = 'idle'): string {
   const isSuccess = state === 'success' || state === 'submitted' || state === 'paid';
 
   switch (norm) {
-    case 'monitoring': {
-      // Aegis Watchtower Sentinel (16x16 pixel art)
+    case 'rebalancing': {
+      // Aegis Rebalancing Bot (16x16 pixel art) — was Watchtower Sentinel
       // Deep blue hooded mantle, cyan radar monocle, golden telescope staff
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="64" height="64" shape-rendering="crispEdges">
         <!-- Hood & Head -->

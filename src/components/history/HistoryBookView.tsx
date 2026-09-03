@@ -18,7 +18,9 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
   const [filterState, setFilterState] = useState<string>('all');
 
   const filteredHires = hires.filter((h) => {
-    if (filterCategory !== 'all' && h.catalog !== filterCategory) return false;
+    const cat = (h.catalog || 'rebalancing') as string;
+    const normalizedCat = cat === 'monitoring' ? 'rebalancing' : cat;
+    if (filterCategory !== 'all' && normalizedCat !== filterCategory) return false;
     if (filterState !== 'all' && h.state !== filterState) return false;
     return true;
   });
@@ -36,14 +38,14 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">
-                  LEDGER.03
+                  HISTORY
                 </span>
                 <h2 className="font-display font-black text-xs sm:text-sm text-[#121212] uppercase tracking-tight">
-                  ON-CHAIN HISTORY
+                  HISTORY
                 </h2>
               </div>
               <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-                Verifiable ERC-8183 escrow locks & HTTP x402 micropayment settlements
+                Transaction history — escrow and payment settlements
               </span>
             </div>
           </div>
@@ -57,11 +59,11 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="bg-transparent text-xs font-bold text-[#121212] focus:outline-none uppercase"
               >
-                <option value="all">ALL DISCIPLINES</option>
-                <option value="monitoring">MONITORING</option>
-                <option value="grid">GRID</option>
-                <option value="health_factor">HEALTH FACTOR</option>
-                <option value="yield">YIELD</option>
+                <option value="all">ALL CATEGORIES</option>
+                <option value="rebalancing">REBALANCING</option>
+                <option value="grid">GRID TRADING</option>
+                <option value="health_factor">HEALTH FACTOR MONITORING</option>
+                <option value="yield">YIELD OPTIMISATION</option>
               </select>
             </div>
 
@@ -86,25 +88,26 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
         <div className="flex-1 overflow-y-auto pr-1">
           {filteredHires.length === 0 ? (
             <div className="text-center py-16 font-mono-tech text-xs text-[#8A8A8A]">
-              [NO ON-CHAIN AUDIT ENTRIES RECORDED UNDER THIS FILTER]
+              No records match this filter.
             </div>
           ) : (
             <table className="w-full text-left font-mono-tech text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-[#121212] bg-[#FAF7F0] text-[9px] text-[#121212] uppercase font-bold">
                   <th className="py-2.5 px-3">Agent</th>
-                  <th className="py-2.5 px-2">Discipline</th>
-                  <th className="py-2.5 px-2">Payment Rail</th>
+                  <th className="py-2.5 px-2">Category</th>
+                  <th className="py-2.5 px-2">Payment</th>
                   <th className="py-2.5 px-2">Status</th>
                   <th className="py-2.5 px-2">Deposit</th>
-                  <th className="py-2.5 px-2">BSC Scan Proof</th>
+                  <th className="py-2.5 px-2">Explorer Proof</th>
                   <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E0D8C8]">
                 {filteredHires.map((hire) => {
                   const agent = agents.find((a) => a.agentId === hire.agentId);
-                  const career = (hire.catalog || 'monitoring') as CareerCategory;
+                  const rawCareer = (hire.catalog || 'rebalancing') as string;
+                  const career = (rawCareer === 'monitoring' ? 'rebalancing' : rawCareer) as CareerCategory;
                   const spriteSrc = getPixelSprite(career);
                   const firstTx = hire.txs?.[0] || null;
                   const explorerBase =
@@ -187,7 +190,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                           className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1 ml-auto"
                         >
                           <MapPin className="w-3 h-3" />
-                          <span>LOCATE</span>
+                          <span>VIEW</span>
                         </button>
                       </td>
                     </tr>
@@ -200,8 +203,8 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
 
         {/* Footer Audit Summary */}
         <div className="border-t-2 border-[#121212] pt-2.5 mt-2 flex items-center justify-between text-[11px] font-mono-tech text-[#6A6A6A] shrink-0">
-          <span>Total Recorded On-Chain Entries: <strong className="text-[#121212]">{filteredHires.length}</strong></span>
-          <span className="font-medium text-[#2563EB]">Chain ID 97 (BSC Testnet) / 56 (BSC Mainnet)</span>
+          <span>Total records: <strong className="text-[#121212]">{filteredHires.length}</strong></span>
+          <span className="font-medium text-[#2563EB]">BSC Testnet / BSC Mainnet</span>
         </div>
       </div>
     </div>

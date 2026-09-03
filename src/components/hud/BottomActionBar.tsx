@@ -30,17 +30,17 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
         <div className="w-6 h-6 bg-[#FFE500] border-2 border-[#121212] neo-shadow-sm flex items-center justify-center font-bold text-xs">
           <Users className="w-3.5 h-3.5 text-[#121212]" />
         </div>
-        <div className="hidden sm:block">
+          <div className="hidden sm:block">
           <div className="flex items-center space-x-1.5">
             <span className="font-display font-extrabold text-xs text-[#121212] uppercase tracking-tight block leading-none">
-              HIRED SQUAD
+              ACTIVE AGENTS
             </span>
             <span className="neo-badge bg-[#00F59B] text-[#121212] text-[8px] font-black px-1.5 py-0.2">
               ∞ UNLIMITED
             </span>
           </div>
           <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-            {hires.length} ACTIVE {hires.length === 1 ? 'AGENT' : 'AGENTS'} // NO HIRE LIMIT
+            {hires.length} ACTIVE {hires.length === 1 ? 'AGENT' : 'AGENTS'} // NO LIMIT
           </span>
         </div>
       </div>
@@ -53,7 +53,7 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
               <button
                 key={`empty-${i}`}
                 onClick={() => onNavigate('marketplace')}
-                title={`Empty slot ${i + 1} — Click to hire another agent (No limits)`}
+                title={`Empty slot ${i + 1} — Click to hire another agent (No limits)`} // HIRE giữ nguyên khi chưa thuê
                 className="w-10 h-10 sm:w-11 sm:h-11 bg-[#F4F0EA] border-2 border-dashed border-[#121212] flex flex-col items-center justify-center text-[#121212] hover:bg-[#FFE500] hover:border-solid hover:neo-shadow-sm transition-all rounded-none group shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 text-[#6A6A6A] group-hover:text-[#121212]" />
@@ -65,7 +65,8 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
           }
 
           const agent = agents.find((a) => a.agentId === hire.agentId);
-          const career = (hire.catalog || 'monitoring') as 'monitoring' | 'grid' | 'health_factor' | 'yield';
+          const rawCareer = (hire.catalog || 'rebalancing') as string;
+          const career = (rawCareer === 'monitoring' ? 'rebalancing' : rawCareer) as 'rebalancing' | 'grid' | 'health_factor' | 'yield';
           const spriteSrc = getPixelSprite(career, hire.state);
 
           const stateColor =
@@ -81,7 +82,7 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
             <button
               key={hire.id || `hire-${i}`}
               onClick={() => onSelectHiredSlot(hire)}
-              title={`${agent?.name || hire.agentId} #${i + 1} (${hire.state.toUpperCase()}) — Click to focus chamber`}
+              title={`${agent?.name || hire.agentId} #${i + 1} (${hire.state.toUpperCase()}) — Click to view agent`}
               className="w-10 h-10 sm:w-11 sm:h-11 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm hover:neo-shadow flex flex-col items-center justify-center relative rounded-none shrink-0 transition-all hover:translate-y-[-2px]"
             >
               <img
@@ -110,9 +111,9 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
         <button
           onClick={() => onNavigate('marketplace')}
           className="neo-btn bg-[#FFE500] hover:bg-[#00F59B] text-[#121212] font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
-          title="Hire unlimited concurrent autonomous agents"
+          title="Activate more agents — unlimited concurrent"
         >
-          <span>+ HIRE MORE</span>
+          <span>+ ACTIVATE MORE</span>
         </button>
       </div>
     </footer>

@@ -29,52 +29,51 @@ export const LeftNav: React.FC<LeftNavProps> = ({ currentView, onNavigate }) => 
   const items: NavItem[] = [
     {
       view: 'town',
-      label: 'PLAZA',
-      sublabel: 'Interactive Map',
+      label: 'HOME',
+      sublabel: 'Overview',
       icon: Home,
       accentColor: '#FFE500',
     },
     {
       view: 'marketplace',
-      label: 'MARKET',
-      sublabel: '4 Stalls Bazaar',
+      label: 'MARKETPLACE',
+      sublabel: 'Browse agents',
       icon: ShoppingBag,
-      badge: 'HOT',
       accentColor: '#38BDF8',
     },
     {
       view: 'agents',
-      label: 'SANCTUARY',
-      sublabel: 'Work Chambers',
+      label: 'MY AGENTS',
+      sublabel: 'Active agents',
       icon: ShieldCheck,
       accentColor: '#00F59B',
     },
     {
       view: 'history',
       label: 'HISTORY',
-      sublabel: 'On-Chain Records',
+      sublabel: 'Transactions',
       icon: BookOpen,
       accentColor: '#A855F7',
     },
     {
       view: 'profits',
-      label: 'TREASURY',
-      sublabel: 'Net Yield Report',
+      label: 'PERFORMANCE',
+      sublabel: 'Portfolio',
       icon: TrendingUp,
       accentColor: '#FF7828',
     },
     {
       view: 'demo',
-      label: 'SHOWCASE',
-      sublabel: 'Judge Auto-Demo',
+      label: 'DEMO',
+      sublabel: 'Walkthrough',
       icon: PlaySquare,
       badge: 'LIVE',
       accentColor: '#FF4365',
     },
     {
       view: 'story',
-      label: 'ORIGINS',
-      sublabel: '6-Beat Lore',
+      label: 'ABOUT',
+      sublabel: 'How it works',
       icon: Film,
       accentColor: '#FFE500',
     },
@@ -87,10 +86,7 @@ export const LeftNav: React.FC<LeftNavProps> = ({ currentView, onNavigate }) => 
         <div className="hidden md:block px-2 py-1 mb-2 border-b-2 border-[#121212] pb-2">
           <div className="flex items-center justify-between text-[#121212]">
             <span className="font-mono-tech font-bold text-[9px] tracking-wider uppercase">
-              // PORTAL INDEX
-            </span>
-            <span className="font-mono-tech text-[9px] text-[#FF4365] font-bold">
-              [V.26]
+              LANS · BNB CHAIN
             </span>
           </div>
         </div>

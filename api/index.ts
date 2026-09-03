@@ -10,6 +10,7 @@ import { runSemanticSync, runIncrementalSync, runLatestSync } from '../workers/s
 import { runClassificationWorker } from '../workers/classify.ts';
 import { runProbeWorker } from '../workers/probe.ts';
 import { runClassificationUnitTests } from '../lib/classify.ts';
+import { searchAgentsSemantic, mapRawToAgent } from '../lib/8004scan.ts';
 
 const app = new Hono().basePath('/api');
 
@@ -26,13 +27,30 @@ app.get('/agents', async (c) => {
   const category = c.req.query('category') || 'all';
   const activeOnly = c.req.query('activeOnly') !== 'false';
   const verifiedOnly = c.req.query('verifiedOnly') === 'true';
+  const includeUncategorized = c.req.query('includeUncategorized') === 'true';
+  const live = c.req.query('live') === 'true';
   const wallet = c.req.query('wallet');
   const q = c.req.query('q');
 
-  let pool = await store.getAgents(activeOnly, category, verifiedOnly);
-  if (q) {
+  let pool = await store.getAgents(activeOnly, category, verifiedOnly, includeUncategorized);
+
+  // Live registry search (300k+ trên 8004scan)
+  if (live && q) {
+    try {
+      const liveRaw = await searchAgentsSemantic(q, 56, 50, 0);
+      const existingIds = new Set(pool.map((a: any) => a.agentId));
+      const fresh = liveRaw
+        .map((raw) => mapRawToAgent(raw))
+        .filter((a: any) => a && a.agentId && !existingIds.has(a.agentId)) as any[];
+      pool = [...pool, ...fresh];
+      const lower = q.toLowerCase();
+      pool = pool.filter((a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower)));
+    } catch (err) {
+      console.warn('[LiveSearch] 8004scan search failed, falling back to local pool:', err);
+    }
+  } else if (q) {
     const lower = q.toLowerCase();
-    pool = pool.filter((a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower));
+    pool = pool.filter((a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower)));
   }
 
   const walletContext = await analyzeWalletContext(wallet || undefined);
@@ -41,10 +59,14 @@ app.get('/agents', async (c) => {
   const wB = 1.0 - (wH + wS);
 
   const scoredAgents = pool.map((agent: any) => {
+    // Đa tag: lấy max heuristic trong các labels
     let heuristicScore = 0.5;
-    const firstLabel = agent.labels?.[0] as keyof typeof walletContext.heuristicScores;
-    if (firstLabel && walletContext.heuristicScores[firstLabel] !== undefined) {
-      heuristicScore = walletContext.heuristicScores[firstLabel];
+    const normalizedLabels = (agent.labels || []).map((l: string) => (l === 'monitoring' ? 'rebalancing' : l)) as (keyof typeof walletContext.heuristicScores)[];
+    if (normalizedLabels.length > 0) {
+      const scores = normalizedLabels
+        .map((lbl) => walletContext.heuristicScores[lbl])
+        .filter((v) => v !== undefined) as number[];
+      if (scores.length > 0) heuristicScore = Math.max(...scores);
     }
     let contentScore = (agent.labelConfidence || 0.8) * 0.5;
     if (agent.supportedProtocols?.includes('erc8183')) contentScore += 0.25;
@@ -55,7 +77,7 @@ app.get('/agents', async (c) => {
   });
 
   scoredAgents.sort((a: any, b: any) => b.finalScore - a.finalScore);
-  return c.json({ agents: scoredAgents, total: scoredAgents.length, walletContext });
+  return c.json({ agents: scoredAgents, total: scoredAgents.length, liveSearched: live && !!q, walletContext });
 });
 
 app.get('/agents/stream', async (c) => {

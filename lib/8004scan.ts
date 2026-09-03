@@ -56,7 +56,7 @@ export async function sleep(ms: number) {
 
 /**
  * Indexer tag -> system career category mapping.
- * The marketplace exposes 4 stalls: monitoring | grid | health_factor | yield.
+ * The marketplace exposes 4 stalls: rebalancing | grid | health_factor | yield.
  */
 const TAG_CATEGORY_MAP: Record<string, CareerCategory> = {
   // health_factor
@@ -80,29 +80,41 @@ const TAG_CATEGORY_MAP: Record<string, CareerCategory> = {
   'harvest': 'yield',
   'staking': 'yield',
   'earn': 'yield',
-  // grid
+  // rebalancing — manages LP ranges, resets positions automatically
+  'rebalance': 'rebalancing',
+  'rebalancing': 'rebalancing',
+  'lp': 'rebalancing',
+  'liquidity': 'rebalancing',
+  'pancake': 'rebalancing',
+  'pancakeswap': 'rebalancing',
+  'v3': 'rebalancing',
+  'concentrated': 'rebalancing',
+  'position': 'rebalancing',
+  'reset': 'rebalancing',
+  // grid — places and manages automated grid orders
   'grid': 'grid',
+  'grid-trading': 'grid',
+  'grid trading': 'grid',
   'dca': 'grid',
   'range-trading': 'grid',
   'market-making': 'grid',
   'trading-bot': 'grid',
-  'lp': 'grid',
-  'liquidity': 'grid',
-  // monitoring
-  'monitor': 'monitoring',
-  'monitoring': 'monitoring',
-  'watch': 'monitoring',
-  'watcher': 'monitoring',
-  'alert': 'monitoring',
-  'tracker': 'monitoring',
-  'tracking': 'monitoring',
-  'whale': 'monitoring',
-  'sentinel': 'monitoring',
-  'security': 'monitoring',
-  'risk': 'monitoring',
+  'limit-ladder': 'grid',
+  // legacy monitoring tags -> map to rebalancing for backward compat
+  'monitor': 'rebalancing',
+  'monitoring': 'rebalancing',
+  'watch': 'rebalancing',
+  'watcher': 'rebalancing',
+  'alert': 'rebalancing',
+  'tracker': 'rebalancing',
+  'tracking': 'rebalancing',
+  'whale': 'rebalancing',
+  'sentinel': 'rebalancing',
+  'security': 'rebalancing',
+  'risk': 'rebalancing',
 };
 
-const CATEGORY_ORDER: CareerCategory[] = ['monitoring', 'grid', 'health_factor', 'yield'];
+const CATEGORY_ORDER: CareerCategory[] = ['rebalancing', 'grid', 'health_factor', 'yield'];
 
 function parseHourlyCostU(raw: Raw8004Agent): string | undefined {
   const text = `${raw.description || ''} ${JSON.stringify(raw.raw_json?.offchain_content?.attributes || [])}`;

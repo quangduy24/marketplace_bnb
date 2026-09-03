@@ -13,7 +13,7 @@ export interface WalletPortfolioContext {
   hasOutOfRangeLiquidity: boolean;
   activeWhaleExposure: boolean;
   heuristicScores: {
-    monitoring: number;
+    rebalancing: number;
     grid: number;
     health_factor: number;
     yield: number;
@@ -80,7 +80,7 @@ export async function analyzeWalletContext(walletAddress?: string): Promise<Wall
     hfScore = 1.0;
     weightH = 0.70; // Emergency Override
     if (!activeAlertMessage) {
-      activeAlertMessage = 'WARNING: Health Factor is below 1.15. Forge Guardian recommended.';
+      activeAlertMessage = 'WARNING: Health Factor is below 1.15. Health Factor Monitoring recommended.';
     }
   } else if (healthFactor < 1.30) {
     hfScore = 0.85;
@@ -89,11 +89,10 @@ export async function analyzeWalletContext(walletAddress?: string): Promise<Wall
   // Idle stablecoin check (> $500 -> boost yield stall)
   const yieldScore = idleStablecoinU > 500 ? 0.85 : 0.45;
 
-  // PancakeSwap V3 out-of-range -> boost grid stall
-  const gridScore = hasOutOfRangeLiquidity ? 0.90 : 0.60;
-
-  // Monitoring score
-  const monitorScore = activeWhaleExposure ? 0.75 : 0.50;
+  // Rebalancing: PancakeSwap V3 out-of-range -> boost rebalancing
+  const rebalancingScore = hasOutOfRangeLiquidity ? 0.90 : 0.60;
+  // Grid Trading: automated grid orders -> moderate baseline (future: volatility signal)
+  const gridScore = activeWhaleExposure ? 0.70 : 0.55;
 
   return {
     walletAddress,
@@ -103,7 +102,7 @@ export async function analyzeWalletContext(walletAddress?: string): Promise<Wall
     hasOutOfRangeLiquidity,
     activeWhaleExposure,
     heuristicScores: {
-      monitoring: monitorScore,
+      rebalancing: rebalancingScore,
       grid: gridScore,
       health_factor: hfScore,
       yield: yieldScore,

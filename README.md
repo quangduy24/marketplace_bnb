@@ -1,4 +1,4 @@
-# 🌟 LANS (L*) — Autonomous Agent Sanctuary & Bazaar
+# 🌟 LANS (L*) — Autonomous DeFi Agent Marketplace
 
 ### Next-Generation Autonomous AI Agent Economy on BNB Chain
 
@@ -21,7 +21,7 @@
 
 > **Standards:** `ERC-8004` Agent Identity · `ERC-8183` Conditional Escrow · `HTTP x402` Micro-Settlement · `Viem v2` · `Venus Protocol`
 
-> LANS is a decentralized marketplace and interactive 2D sanctuary that connects DeFi users on BNB Smart Chain with verified autonomous AI agents — with cryptographic escrow, Bayesian recommendation, and a gamified pixel-art town.
+> LANS is a decentralized marketplace on BNB Smart Chain that connects DeFi users with verified autonomous AI agents — with cryptographic escrow, Bayesian recommendation, and an interactive map overview.
 
 ---
 
@@ -54,7 +54,7 @@
 
 ## 1. Executive Summary
 
-**LANS — Autonomous Agent Sanctuary & Bazaar** is a production-grade Web3 platform and interactive simulation on **BNB Smart Chain (BSC)** that matches crypto holders and DeFi protocols with **verified autonomous AI agents** via on-chain identity and trust-minimized payment rails.
+**LANS — Autonomous DeFi Agent Marketplace** is a production-grade Web3 platform and interactive simulation on **BNB Smart Chain (BSC)** that matches crypto holders and DeFi protocols with **verified autonomous AI agents** via on-chain identity and trust-minimized payment rails.
 
 Unlike black-box agent marketplaces that expose users to unpredictable costs, opaque execution, and counterparty risk, LANS delivers:
 
@@ -63,8 +63,8 @@ Unlike black-box agent marketplaces that expose users to unpredictable costs, op
 | **Trust-minimized payment** | `ERC-8183` conditional escrow + `x402` pay-per-request; funds release only on verifiable proof |
 | **Intelligent matching** | Context-aware heuristic + Bayesian **Thompson Sampling** bandit that adapts to wallet urgency (e.g., Venus Health Factor) |
 | **Operational transparency** | P99 latency, 5 s liveness probes, on-chain proof hashes, BscScan-verified settlement |
-| **Novice accessibility** | `Beginner Mode` (plain English), goal-based matchmaker, fixed-duration packages, zero-risk demo |
-| **Engagement** | Gamified pixel-art **Sanctuary Town** — agent houses, live telemetry, mood states, dialogue bubbles |
+| **Novice accessibility** | Plain-English UX, goal-based matchmaker, fixed-duration packages, escrow protection |
+| **Engagement** | Interactive map overview with live telemetry, job status, and a guided walkthrough |
 
 The platform is live as a React 19 SPA served by an Express backend (local) and a Hono edge function on Vercel, backed by Postgres/Supabase with an in-memory fallback for previews.
 
@@ -76,35 +76,44 @@ The platform is live as a React 19 SPA served by an Express backend (local) and 
 |---|---|
 | No canonical identity — anyone can claim to be an agent | **ERC-8004** on-chain registry (`0x8004A169...`) with `8004scan` indexer, semantic search, and endpoint verification |
 | Pay upfront, hope for delivery | **ERC-8183** escrow locks funds; release requires `Keccak256`-hashed artifact + `submitted → paid` state transition; reclaim on timeout |
-| One-size-fits-all ranking | **2-Stage Bayesian engine** — urgent wallet context (HF < 1.15) dynamically up-weights the relevant stall |
+| One-size-fits-all ranking | **2-Stage Bayesian engine** — urgent wallet context (HF < 1.15) dynamically up-weights the relevant category |
 | Cold-start starvation for new agents | **Thompson Sampling Beta(α, β)** balances exploration vs. exploitation |
-| Inaccessible DeFi jargon | Dual-mode Bazaar: `Beginner` vs. `Pro Specs`, glossary, side-by-side comparison matrix |
-| Invisible execution | History ledger, SSE real-time sync, Profits dashboard quantifying yield / fees saved |
+| Inaccessible DeFi jargon | Plain-English categories, glossary, side-by-side comparison matrix |
+| Invisible execution | History ledger, SSE real-time sync, Performance dashboard quantifying yield / fees saved |
 
 ---
 
 ## 3. Key Features
 
-### 3.1 Interactive Town Simulation (`TownMap` / `AgentHouse`)
+### 3.1 Interactive Home Map (`TownMap` / `AgentHouse`)
 
-A 2D isometric pixel-art town is the primary spatial metaphor. Each career vertical owns a building:
+A 2D pixel-art map is the primary navigation metaphor. Four sections:
 
-| Building | Agent ID | Function | Telemetry |
-|---|---|---|---|
-| 🛡️ **Health Factor Citadel** | `forge-shield-03` (`RISK.03`) | Venus loan flash-collateral defense | HF, liquidity, shortfall |
-| 💰 **Yield Greenhouse** | `harvest-greenhouse-04` (`APY.04`) | Idle stablecoin routing & auto-compounding | APY, sweep threshold |
-| 📈 **Grid Draft Workshop** | `grid-master-02` (`DEX.02`) | PancakeSwap V3 concentrated liquidity tick management | In-range %, p99 latency |
-| 👁️ **Watchtower Observatory** | `watchtower-prime-01` (`SEC.01`) | Mempool + whale dump sentinel | Exposure flag, alert feed |
+| Section | What It Does |
+|---|---|
+| 🛒 **Marketplace** | Browse all registered agents across 4 categories, live registry search |
+| 🤖 **My Agents** | Track your active agents by category with live job status |
+| 📖 **History** | On-chain records & explorer proofs |
+| 📈 **Performance** | Cost vs value dashboard |
 
-Additional capabilities: live status (`active`/`reachable`/`hireable`), mood states, dialogue bubbles, `focusedChamber` drill-down, and `BottomActionBar` unlimited concurrent hires view.
+The marketplace surfaces **4 equal categories** (see [§19.2](#192-four-categories--all-first-class-equal-depth-no-afterthought)):
 
-### 3.2 Dual-Mode Marketplace & Bazaar (`MarketplaceView`)
+| Category | What the Agent Does | Example Agent |
+|---|---|---|
+| **Rebalancing** | Manages LP ranges, resets positions automatically | `Aegis Rebalancing Bot` |
+| **Grid Trading** | Places and manages automated grid orders | `Chronos Grid Trading Bot` |
+| **Yield Optimisation** | Routes liquidity to the highest available APR | `Demeter Yield Optimiser` |
+| **Health Factor Monitoring** | Protects lending positions from liquidation | `Vulcan Health Factor Monitor` |
 
-- **`🌱 Beginner Mode`** — plain-English descriptions, "When to use" guidance, cost benchmarks, no acronym overload.
-- **`⚡ Pro Specs`** — ERC-8004 `tokenId`, raw JSON metadata, contract addresses, `p99LatencyMs`, `reputationScore`, `hourlyCostU`.
-- **Goal-Based Matchmaker** — four instant filters: *Protect Loans · Harvest Yield · Optimize LP Fees · 24/7 Wallet Radar*.
+Additional capabilities: live status (`active`/`reachable`/`hireable`), `focusedChamber` drill-down, and `BottomActionBar` unlimited concurrent hires view.
+
+### 3.2 Marketplace (`MarketplaceView`)
+
+- **Plain-English categories** — each category shows a one-line purpose: *Manages LP ranges · Places grid orders · Routes to highest APR · Protects from liquidation*.
+- **Pro Specs** — ERC-8004 `tokenId`, raw JSON metadata, contract addresses, `p99LatencyMs`, `reputationScore`, `hourlyCostU`.
+- **Category Matchmaker** — four instant filters: *Rebalancing · Grid Trading · Yield Optimisation · Health Factor Monitoring*, plus an `Uncategorized` tab and a **live registry search** (8004scan, 300k+ agents) right from the search box.
 - **Comparison Matrix (`CompareModal`)** — latency, hourly rate, trust, rails (`x402`/`erc8183`), success rate `α/(α+β)` side-by-side.
-- **Hiring Modal (`HireModal`)** — preset packages `Trial 2h` / `1 Day 24h` (Most Popular) / `7 Days 168h` (15% discount); rail selection; **Zero-Risk Demo Mode** that exercises the full `funded → running → submitted → paid` lifecycle without real funds.
+- **Hire Modal (`HireModal`)** — preset packages `Trial 2h` / `1 Day 24h` (Most Popular) / `7 Days 168h` (15% discount); rail selection; escrow-protected hire.
 
 ### 3.3 Automated Loan Protection Engine
 
@@ -112,7 +121,7 @@ Queries `Venus Comptroller.getAccountLiquidity(address)` via Viem on BSC Mainnet
 
 ```
 shortfall > 0  →  HF = 0.95  →  EMERGENCY
-HF < 1.15      →  WARNING   →  recommend Vulcan Guardian
+HF < 1.15      →  WARNING   →  recommend a Health Factor Monitoring agent
 HF < 1.30      →  elevated  →  heuristic boost 0.85
 ```
 
@@ -172,8 +181,8 @@ From `lib/context.ts:analyzeWalletContext()` (`lib/context.ts:74`):
 |---|---|---|
 | `health_factor` | `shortfall>0 \lor HF<1.15` → 1.00; `HF<1.30` → 0.85; else 0.50 | $h_{hf}$ |
 | `yield` | `idleStablecoinU > 500` → 0.85 else 0.45 | $h_{y}$ |
-| `grid` | `hasOutOfRangeLiquidity` → 0.90 else 0.60 | $h_{g}$ |
-| `monitoring` | `activeWhaleExposure` → 0.75 else 0.50 | $h_{m}$ |
+| `rebalancing` | `hasOutOfRangeLiquidity` → 0.90 else 0.60 | $h_{r}$ |
+| `grid` | `activeWhaleExposure` → 0.70 else 0.55 | $h_{g}$ |
 
 Dynamic heuristic weight:
 
@@ -210,12 +219,12 @@ $$
 
 with `CAREER_KEYWORDS` (`lib/classify.ts:8`):
 
-- `monitoring`: monitor, watch, alert, track wallet, position, whale
-- `grid`: grid, range trading, dca, limit ladder
+- `rebalancing`: rebalance, rebalancing, lp range, reset position, pancake, concentrated liquidity
+- `grid`: grid, range trading, dca, limit ladder, grid trading, market-making
 - `health_factor`: health factor, liquidation, ltv, collateral, venus, aave
 - `yield`: yield, apy, vault, farm, harvest, allocate
 
-If no keyword matches, label is `uncategorized` with confidence 1.0 and the agent is excluded from marketplace filters (`lib/supabase.ts:87`).
+If no keyword matches, label is `uncategorized` with confidence 1.0. The marketplace shows it under the `Uncategorized` tab; it is excluded from the 4 category cards (`lib/supabase.ts:87`).
 
 ### 4.5 Thompson Sampling — Bayesian Bandit
 
@@ -266,10 +275,10 @@ $$
 \boxed{\text{FinalScore}_i = w_H \cdot h_{c(i)} + w_S \cdot \text{ContentScore}_i + \max(0,w_B)\cdot \theta_i}
 $$
 
-where $c(i)$ is the agent's first label category and $h_{c(i)}$ the matching heuristic score. Agents are sorted descending by `FinalScore` (rounded to 3 decimals). Example:
+where $c(i)$ is the agent's category and $h_{c(i)}$ the matching heuristic score — for multi-tag agents the max across labels is used (`server.ts:82`). Agents are sorted descending by `FinalScore` (rounded to 3 decimals). Example:
 
 - Healthy wallet ($w_H=0.35, w_S=0.35, w_B=0.30$): balanced mix of urgency, quality, and exploration.
-- Emergency wallet ($w_H=0.70, w_S=0.35, w_B=0$): ranking collapses to urgency + quality — the Health Factor Guardian surfaces first deterministically.
+- Emergency wallet ($w_H=0.70, w_S=0.35, w_B=0$): ranking collapses to urgency + quality — Health Factor Monitoring surfaces first deterministically.
 
 ### 4.7 Yield Compounding (Dashboard)
 
@@ -449,11 +458,11 @@ pending → funded → running → submitted → paid
 |---|---|---|---|
 | **Semantic Sync** | `workers/sync.ts:20` `runSemanticSync()` | `POST /api/workers/sync?mode=semantic` · auto on empty DB | Queries 4 categories × capped queries (≤200/cat) via `searchAgentsSemantic`, maps with `mapRawToAgent`, rate-limited `2100 ms` + `429 → 3500 ms` backoff |
 | **Incremental Sync** | `runIncrementalSync(maxPages)` | `POST /api/workers/sync?mode=incremental` | Paginates `GET /api/v1/agents?chain_id=56&limit=50&offset=*` |
-| **Latest Sync (24 h cron)** | `runLatestSync()` | `AUTO_SYNC` interval (`SYNC_INTERVAL_MS`, default 86 400 000) · `mode=latest` | `runIncrementalSync(20)` → `runClassificationWorker()` → `runProbeWorker()`; broadcasts SSE |
+| **Latest Sync (60 min)** | `runLatestSync()` | `AUTO_SYNC` interval (`SYNC_INTERVAL_MS`, default 3 600 000 = 60 min) · `mode=latest` | `runIncrementalSync(20)` → `runClassificationWorker()` → `runProbeWorker()`; broadcasts SSE |
 | **Classification** | `workers/classify.ts` `runClassificationWorker()` | `POST /api/workers/classify` · post-sync | Applies `classifyAgent()` + `TAG_CATEGORY_MAP` to unlabeled agents |
 | **Liveness Probe** | `workers/probe.ts:53` `runProbeWorker()` | `POST /api/workers/probe` · every 5 s heartbeat (logical) · post-sync | Resolves `{agentId}` templates, `HEAD→GET` probe with `5 s` timeout, computes `hireable = active && reachable && (x402Supported\|\|agentUri\|\|erc8183)` |
 
-`AUTO_SYNC` logic (`server.ts:291`): on boot, if `countAgents()==0` run `runSemanticSync()` once; then `setInterval(runLatestSync, SYNC_INTERVAL_MS)` with SSE `broadcast` after each run.
+`AUTO_SYNC` logic (`server.ts:291`): on boot, if `countAgents()==0` run `runSemanticSync()` once; otherwise run `runLatestSync()` immediately; then `setInterval(runLatestSync, SYNC_INTERVAL_MS)` with SSE `broadcast` after each run.
 
 ---
 
@@ -465,7 +474,7 @@ Base URL: `http://localhost:3000` (dev) · `https://<vercel-domain>` (prod). All
 |---|---|---|---|
 | `GET` | `/api/health` | Service health & timestamp | — |
 | `GET` | `/api/context` | Wallet loan HF, debt metrics, heuristic weights | `?wallet=0x…` |
-| `GET` | `/api/agents` | List & rank agents (2-Stage Bayesian engine) | `?category=all\|monitoring\|grid\|health_factor\|yield` `&activeOnly=true` `&verifiedOnly=false` `&wallet=0x…` `&q=searchTerm` |
+| `GET` | `/api/agents` | List & rank agents (2-Stage Bayesian engine) | `?category=all\|rebalancing\|grid\|health_factor\|yield\|uncategorized` `&activeOnly=true` `&verifiedOnly=false` `&includeUncategorized=false` `&live=false` `&wallet=0x…` `&q=searchTerm` |
 | `GET` | `/api/agents/stream` | SSE — `agents-updated` push (no polling) | EventSource |
 | `GET` | `/api/agents/:id` | Telemetry, proof history, raw metadata for one agent | — |
 | `GET` | `/api/hires` | All hires, optionally filtered by buyer | `?buyer=0x…` (case-insensitive) |
@@ -483,6 +492,12 @@ Base URL: `http://localhost:3000` (dev) · `https://<vercel-domain>` (prod). All
 ```bash
 curl "http://localhost:3000/api/agents?wallet=0x42f7B8618e47D3A635B16F6D43B514f7b6059d48&category=all&activeOnly=true"
 # → { agents: [{ agentId, name, finalScore, heuristicScore, contentScore, banditScore, ... }], total, walletContext }
+
+# All registered agents (inactive + uncategorized included)
+curl "http://localhost:3000/api/agents?activeOnly=false&includeUncategorized=true"
+
+# Live registry search (8004scan semantic search merged into the pool)
+curl "http://localhost:3000/api/agents?q=grid&live=true&activeOnly=false&includeUncategorized=true"
 ```
 
 ### Example — Prepare & Fund a Hire
@@ -522,19 +537,20 @@ curl -X POST http://localhost:3000/api/auth/verify \
 
 | View | Path(s) | Component |
 |---|---|---|
-| Story / Onboarding | `/story` | `StoryBeatController` |
-| Town (default) | `/` `/plaza` `/town` | `TownMap` |
+| About / Onboarding | `/story` | `StoryBeatController` |
+| Home (default) | `/` `/plaza` `/town` | `TownMap` |
 | Marketplace | `/market` `/marketplace` | `MarketplaceView` |
-| Agent House | `/agents` `/sanctuary` | `AgentHouse` |
+| My Agents | `/agents` `/sanctuary` | `AgentHouse` |
 | History | `/history` `/logbook` | `HistoryBookView` |
-| Treasury / Profits | `/treasury` `/profits` | `ProfitsDashboard` |
-| Demo | `/demo` | `AutoDemoRunner` |
+| Performance | `/treasury` `/profits` | `ProfitsDashboard` |
+| Demo / Walkthrough | `/demo` | `AutoDemoRunner` |
 
 SPA fallback is configured in `vercel.json:6` (`/(.*) → /index.html`) and in `server.ts:281` (`express.static(dist)` + `* → index.html`).
 
 ### State & Data Flow
 
-- `fetchAgents()` → `GET /api/agents?wallet=&activeOnly=true` → ranked `AgentData[]` + `walletContext`.
+- `fetchAgents()` → `GET /api/agents?wallet=&activeOnly=false&includeUncategorized=true` → full `AgentData[]` pool (directory + live search).
+- `fetchAgentsActive()` → `GET /api/agents?wallet=&activeOnly=true` → active labeled pool used by the 4 category cards.
 - `fetchHires()` → `GET /api/hires?buyer=` → `HireData[]`.
 - `fetchContext()` → `GET /api/context?wallet=` → `WalletContextState` (HF, shortfall, `weightHeuristic`).
 - `EventSource('/api/agents/stream')` → `onmessage: agents-updated` → `fetchAgents()`; fallback on `visibilitychange`/`focus`.
@@ -586,7 +602,9 @@ npm run dev
 curl http://localhost:3000/api/health
 curl "http://localhost:3000/api/context?wallet=0x0000000000000000000000000000000000000000"
 curl "http://localhost:3000/api/agents?activeOnly=true"
+curl "http://localhost:3000/api/agents?activeOnly=false&includeUncategorized=true"
 curl http://localhost:3000/api/tests/classification
+npm test   # UX writing & category unit tests (test/ux-writing.test.ts)
 ```
 
 ---
@@ -609,17 +627,21 @@ Additional scripts:
 ```bash
 npm run preview   # vite preview
 npm run lint      # tsc --noEmit
+npm test          # UX writing & category tests (test/ux-writing.test.ts)
 ```
 
 ### Vercel (Recommended)
 
-`vercel.json` handles SPA rewrites and routes `/api/*` to the Hono function:
+`vercel.json` handles SPA rewrites, routes `/api/*` to the Hono function, and schedules an hourly sync cron:
 
 ```json
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/workers/sync?mode=incremental&maxPages=20", "schedule": "0 * * * *" }
   ]
 }
 ```
@@ -654,10 +676,10 @@ Copy `.env.example` → `.env`. All variables are optional with safe fallbacks.
 | `SCAN_8004_API_URL` | `https://api.8004scan.io/api/v1` | ERC-8004 indexer base URL |
 | `GEMINI_API_KEY` | *(unset)* | Reserved — server-side only, never client-exposed |
 | `APP_URL` | *(unset)* | Reserved — applet host URL |
-| `AUTO_SYNC` | `true` | `false` disables background 24 h sync |
-| `SYNC_INTERVAL_MS` | `86400000` (24 h) | Interval between incremental latest syncs |
+| `AUTO_SYNC` | `true` | `false` disables background sync |
+| `SYNC_INTERVAL_MS` | `3600000` (60 min) | Interval between incremental latest syncs |
 | `MAX_PER_CATEGORY` | `200` | Cap per category for semantic sync |
-| `MAX_TOTAL_LATEST` | `1000` (`20×50`) | Max agents per 24 h incremental sync |
+| `MAX_TOTAL_LATEST` | `1000` (`20×50`) | Max agents per incremental sync |
 
 Connection priority for `DATABASE_URL` (`lib/supabase.ts:7`): `env.HYPERDRIVE.connectionString` → `env.DATABASE_URL` → `globalThis.process.env.DATABASE_URL` → `process.env.DATABASE_URL`.
 
@@ -686,7 +708,7 @@ LANS uses a **Neo-Brutalist Cyberpunk** system — high contrast, hard edges, ze
 | BNB Gold | `#FFE500` | Primary accent, CTAs |
 | Status Emerald | `#00F59B` / `#059669` | Live / verified / success |
 | Danger Coral | `#FF4365` | Liquidation / error / shortfall |
-| Cyber Cyan | `#38BDF8` | Watchtower / info |
+| Cyber Cyan | `#38BDF8` | Rebalancing / info |
 | Obsidian | `#121212` | Borders, text, 2–2.5 px frames |
 
 **Principles:** architectural 8-point star **L\*** wordmark with emerald pulse, hard `2px` borders + offset `neo-shadow`, monospace tech typography (`font-mono-tech`), no blurred glassmorphism, responsive touch targets for desktop & mobile.
@@ -769,7 +791,7 @@ This ensures every agent a user can hire is **registered on-chain, actively main
 
 | Criterion | Hackathon Requirement (Verbatim) | LANS Implementation | Status | Evidence |
 |---|---|---|---|---|
-| **Functionality** | *The full journey works end to end: land, find an agent by category, understand what it does, activate it, with minimal friction. Someone with zero Agent Studio knowledge should be able to get through it without hitting a dead end.* | Complete onboarding → discovery → hire flow with zero prerequisite knowledge. `StoryBeatController` narrative, `TownMap` spatial entry, `MarketplaceView` with `Beginner Mode` (plain English + “When to use”), goal-based matchmaker (4 filters), `HireModal` with preset packages (Trial 2h / 1 Day / 7 Days) + zero-risk Demo, `AgentHouse` + `HistoryBookView` + `ProfitsDashboard` for post-hire tracking. SPA routing (`/plaza`, `/market`, `/agents`, `/history`) with `vercel.json` fallback. | ✅ **Pass** | `src/App.tsx:28` `VIEW_TO_PATH`, `src/components/story/StoryBeatController.tsx`, `src/components/game/TownMap.tsx`, `src/components/market/MarketplaceView.tsx:Beginner`, `src/components/market/HireModal.tsx`, `src/components/demo/AutoDemoRunner.tsx` |
+| **Functionality** | *The full journey works end to end: land, find an agent by category, understand what it does, activate it, with minimal friction. Someone with zero Agent Studio knowledge should be able to get through it without hitting a dead end.* | Complete onboarding → discovery → hire flow with zero prerequisite knowledge. `StoryBeatController` "How it works", `TownMap` home overview, `MarketplaceView` with plain-English categories (purpose per category), 4 category filters + `Uncategorized` tab + live registry search, `HireModal` with preset packages (Trial 2h / 1 Day / 7 Days), `AgentHouse` + `HistoryBookView` + `ProfitsDashboard` for post-hire tracking. SPA routing (`/plaza`, `/market`, `/agents`, `/history`, `/treasury`) with `vercel.json` fallback. | ✅ **Pass** | `src/App.tsx:28` `VIEW_TO_PATH`, `src/components/story/StoryBeatController.tsx`, `src/components/game/TownMap.tsx`, `src/components/market/MarketplaceView.tsx`, `src/components/market/HireModal.tsx`, `src/components/demo/AutoDemoRunner.tsx` |
 | **Data Quality** | *Real-time, accurate data that goes beyond basic counts. A user should be able to look at what you’re showing and make a genuinely informed call on which agent to hire.* | Live data beyond counts: Venus `getAccountLiquidity` → `healthFactor` & heuristic weights (`lib/context.ts:40`), `8004scan` live indexer with rate-limit & backoff (`lib/8004scan.ts:184`), `p99LatencyMs`, `reputationScore`, `hourlyCostU`, `labelConfidence`, Thompson `α/β` & `banditScore`, `hourlyCostU` parsing, SSE `agents-updated` push (no polling) + `visibilitychange` fallback. Compare matrix shows latency, cost, trust, rail, success rate side-by-side. | ✅ **Pass** | `lib/context.ts:51`, `lib/8004scan.ts:51`/`117`, `lib/bandit.ts:51`, `server.ts:71` `weightHeuristic`, `api/index.ts:38` hybrid rank, `src/components/market/CompareModal.tsx` |
 | **Agent Diversity** | *All four categories (rebalancing, grid trading, yield, health factor) surfaced with equal depth. A submission that treats one category as the main event and the rest as an afterthought won’t score well here.* | All four hackathon categories are first-class with equal UI, ranking, and on-chain depth — none is an afterthought. No category dominates routing, filtering, or scoring (`category` filter, `heuristicScores` per category, `TAG_CATEGORY_MAP` per category). | ✅ **Pass** | See §19.2 mapping table. `lib/classify.ts:8` `CAREER_KEYWORDS`, `lib/8004scan.ts:61` `TAG_CATEGORY_MAP`, `server.ts:76` per-category `heuristicScore` |
 
@@ -777,15 +799,15 @@ This ensures every agent a user can hire is **registered on-chain, actively main
 
 > Hackathon bar: *Single-category submissions score poorly. All four, equally deep, is the bar.*
 
-| Hackathon Category | What the Agent Does (Hackathon) | LANS Category Mapping | LANS Building / Agent & Stall | Depth Evidence (equal for all) | Status |
+| Hackathon Category | What the Agent Does (Hackathon) | LANS Category Mapping | LANS Category & Agent | Depth Evidence (equal for all) | Status |
 |---|---|---|---|---|---|
-| **Rebalancing** | Manages LP ranges, resets positions automatically | `grid` | 📈 **Grid Draft Workshop** (`DEX.02`) — `grid-master-02` *Chronos Dynamic Grid Bot* — PancakeSwap V3 concentrated liquidity tick ranges, geometric limit ladder | House with live telemetry (p99 310 ms), `hasOutOfRangeLiquidity` heuristic (`lib/context.ts:92` → `gridScore=0.90`), hireable check, 5 s probe, comparison matrix | ✅ |
-| **Grid Trading** | Places and manages automated grid orders | `grid` | Same as above — explicitly covers DCA / limit ladder / range trading (`CAREER_KEYWORDS` `grid`, `range trading`, `dca`, `limit ladder`; tags `grid`, `dca`, `range-trading`, `market-making`, `lp`) | Same probe/classification/ranking depth as other three categories | ✅ |
-| **Yield Optimisation** | Routes liquidity to the highest available APR | `yield` | 💰 **Yield Greenhouse** (`APY.04`) — `harvest-greenhouse-04` *Demeter APY Yield Harvester* — Venus / Thena / Beefy vault routing, auto-compounding | `idleStablecoinU > 500 → yieldScore 0.85` (`lib/context.ts:90`), APY compounding (§4.7), vault comparison | ✅ |
-| **Health Factor Monitoring** | Protects lending positions from liquidation | `health_factor` | 🛡️ **Health Factor Citadel** (`RISK.03`) — `forge-shield-03` *Vulcan Health Factor Guardian* — Venus HF monitor + flash-collateral defense | `HF < 1.15 → hfScore 1.0, w_H 0.70 emergency` (`lib/context.ts:79`), Comptroller `getAccountLiquidity` on-chain, liquidation save proof (`docs/ADVANTAGE.md:20`, `docs/onchain-proof.md:28`) | ✅ |
-| **Bonus coverage** | — | `monitoring` | 👁️ **Watchtower Observatory** (`SEC.01`) — `watchtower-prime-01` *Aegis Watchtower Sentinel* — 24/7 mempool & whale sentinel | `activeWhaleExposure → monitorScore 0.75` (`lib/context.ts:96`), mempool scanning, sentinel alerts — extra category beyond the four, demonstrating no bias | ✅ |
+| **Rebalancing** | Manages LP ranges, resets positions automatically | `rebalancing` | 🔄 **Rebalancing** — `Aegis Rebalancing Bot` — PancakeSwap V3 LP ranges, concentrated liquidity reset | `hasOutOfRangeLiquidity` heuristic (`lib/context.ts:93` → `rebalancingScore=0.90`), hireable check, 5 s probe, comparison matrix | ✅ |
+| **Grid Trading** | Places and manages automated grid orders | `grid` | 📈 **Grid Trading** — `Chronos Grid Trading Bot` — DCA / limit ladder / range trading (`CAREER_KEYWORDS` `grid`, `grid trading`, `dca`, `limit ladder`, `market-making`; tags `grid`, `dca`, `range-trading`, `market-making`) | Same probe/classification/ranking depth as other three categories | ✅ |
+| **Yield Optimisation** | Routes liquidity to the highest available APR | `yield` | 💰 **Yield Optimisation** — `Demeter Yield Optimiser` — Venus / Thena / Beefy vault routing, auto-compounding | `idleStablecoinU > 500 → yieldScore 0.85` (`lib/context.ts:90`), APY compounding (§4.7), vault comparison | ✅ |
+| **Health Factor Monitoring** | Protects lending positions from liquidation | `health_factor` | 🛡️ **Health Factor Monitoring** — `Vulcan Health Factor Monitor` — Venus HF monitor + flash-collateral defense | `HF < 1.15 → hfScore 1.0, w_H 0.70 emergency` (`lib/context.ts:79`), Comptroller `getAccountLiquidity` on-chain, liquidation save proof (`docs/ADVANTAGE.md:20`, `docs/onchain-proof.md:28`) | ✅ |
+| **Uncategorized (search-only)** | — | `uncategorized` | Directory `Uncategorized` tab — agents without a clear category, searchable but not part of the 4 first-class categories | Excluded from the 4 category cards (`lib/supabase.ts:87`), shown only in the directory for search | ✅ |
 
-> **Verdict:** LANS treats all four hackathon categories as first-class citizens with identical verification, ranking, and UX depth — plus an additional `monitoring` stall that proves the architecture scales beyond the minimum bar.
+> **Verdict:** LANS treats all four hackathon categories as first-class citizens with identical verification, ranking, and UX depth — the `Uncategorized` tab exists purely for search coverage and never competes with the four.
 
 ### 19.3 Altana Integration Checklist — Read Onchain, Not Just Pitch
 
@@ -814,7 +836,7 @@ This ensures every agent a user can hire is **registered on-chain, actively main
 
 | Build | What the Agent Does | Altana Piece (Hackathon) | LANS Alignment | Status |
 |---|---|---|---|---|
-| **Agent hiring marketplace** | Hires and pays other agents, escrow handled | ERC-8183 buyer side, `hireErc8183Agent` | ✅ **Core product** — dual-mode bazaar + escrow ledger + Bayesian recommendation | ✅ **Shipped** |
+| **Agent hiring marketplace** | Hires and pays other agents, escrow handled | ERC-8183 buyer side, `hireErc8183Agent` | ✅ **Core product** — marketplace + escrow ledger + Bayesian recommendation | ✅ **Shipped** |
 | **Agent-to-agent commerce** | Buys inference or data per call, neither side holds the other’s keys | b402 payments, `@altananetwork/x402-server` | ⚠️ Marketplace-mediated hiring is shipped; direct agent→agent b402 keyless commerce not yet exposed as standalone flow | ⚠️ **Roadmap** |
 | **Autonomous DeFi** | Rebalances, lends, stakes, copy-trades inside a cap it cannot exceed | Spend caps + Aave, Venus, PancakeSwap, Lista skills | ✅ **Shipped** — Venus `getAccountLiquidity` + HF guard, Pancake V3 grid, yield vault routing — all inside `budgetU` / `deadline` caps | ✅ **Shipped** |
 | **Micro-payment streaming** | Pays per call, per second, per unit, with no human approving each one | Session key with expiry, b402 | ⚠️ x402 rail present; streaming grants with `expiry` via session keys pending | ⚠️ **Partial** |
@@ -852,8 +874,8 @@ Contributions are welcome — see below.
 1. Fork the repository.
 2. Create a feature branch: `git checkout -b feat/your-feature`.
 3. Keep `server.ts` and `api/index.ts` in sync for any API change.
-4. Add or update tests (`GET /api/tests/classification` is the existing harness).
-5. Run `npm run lint` and `npm run build` locally.
+4. Add or update tests — `npm test` (`test/ux-writing.test.ts`) plus `GET /api/tests/classification` is the existing harness.
+5. Run `npm run lint`, `npm test`, and `npm run build` locally.
 6. Open a pull request — include before/after screenshots for UI changes and BscScan links for on-chain changes.
 
 Please avoid committing `.env`, `dist/`, `node_modules/`, or AI-generated placeholder assets.

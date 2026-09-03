@@ -59,7 +59,8 @@ function getInitialView(): AppView {
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AppView>(() => getInitialView());
-  const [agents, setAgents] = useState<AgentData[]>([]);
+  const [agents, setAgents] = useState<AgentData[]>([]); // toàn bộ pool (769) — directory & search mặc định
+  const [agentsActive, setAgentsActive] = useState<AgentData[]>([]); // active labeled (143) — 4 stalls Image 1
   const [hires, setHires] = useState<HireData[]>([]);
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [walletBalanceU, setWalletBalanceU] = useState<number>(0);
@@ -117,18 +118,33 @@ export default function App() {
     });
   }, [walletPickerOpen]);
 
-  // Fetch agents from API
+  // Fetch agents from API — toàn bộ pool (769) làm directory & search mặc định
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agents?wallet=${walletAddress}&activeOnly=true`);
+      const res = await fetch(`/api/agents?wallet=${walletAddress}&activeOnly=false&includeUncategorized=true`);
       if (res.ok) {
         const data = await res.json();
-        if (data.agents && data.agents.length > 0) {
+        if (data.agents) {
           setAgents(data.agents);
         }
       }
     } catch (err) {
       console.warn('Failed to fetch agents, will retry or fallback', err);
+    }
+  }, [walletAddress]);
+
+  // Fetch active labeled agents (143) riêng cho 4 stalls Image 1
+  const fetchAgentsActive = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/agents?wallet=${walletAddress}&activeOnly=true`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.agents && data.agents.length > 0) {
+          setAgentsActive(data.agents);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch active agents', err);
     }
   }, [walletAddress]);
 
@@ -186,9 +202,10 @@ export default function App() {
 
   useEffect(() => {
     fetchAgents();
+    fetchAgentsActive();
     fetchHires();
     fetchContext();
-  }, [fetchAgents, fetchHires, fetchContext]);
+  }, [fetchAgents, fetchAgentsActive, fetchHires, fetchContext]);
 
   // Immediate Backend → Frontend sync: SSE push after every 24h DB update (no polling)
   useEffect(() => {
@@ -280,7 +297,8 @@ export default function App() {
   };
 
   const handleSelectHiredSlot = (hire: HireData) => {
-    setFocusedChamber((hire.catalog || 'monitoring') as CareerCategory);
+    const raw = (hire.catalog || 'rebalancing') as string;
+    setFocusedChamber((raw === 'monitoring' ? 'rebalancing' : raw) as CareerCategory);
     navigate('agents');
   };
 
@@ -437,6 +455,7 @@ export default function App() {
           {currentView === 'marketplace' && (
             <MarketplaceView
               agents={agents}
+              agentsActive={agentsActive}
               walletContext={walletContext}
               buyerAddress={walletAddress}
               onHireAgent={handleHireAgent}

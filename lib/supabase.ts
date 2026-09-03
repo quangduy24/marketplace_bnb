@@ -50,7 +50,7 @@ export let client: any = _init.client;
 export let db: any = _init.db;
 
 export interface Store {
-  getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean): Promise<schema.Agent[]>;
+  getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean, includeUncategorized?: boolean): Promise<schema.Agent[]>;
   getAllAgents(): Promise<schema.Agent[]>;
   getAgentById(id: string): Promise<schema.Agent | undefined>;
   countAgents(): Promise<number>;
@@ -72,7 +72,7 @@ export class SqlStore implements Store {
     this.db = db;
   }
 
-  async getAgents(filterActive = true, category?: string, verifiedOnly = false): Promise<schema.Agent[]> {
+  async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false): Promise<schema.Agent[]> {
     const conditions: any[] = [];
     if (filterActive) {
       conditions.push(eq(schema.agents.active, true));
@@ -82,9 +82,21 @@ export class SqlStore implements Store {
       conditions.push(eq(schema.agents.hireable, true));
     }
     if (category && category !== 'all') {
-      conditions.push(arrayContains(schema.agents.labels, [category]));
+      if (category === 'rebalancing') {
+        // Legacy alias: old rows still have 'monitoring'
+        conditions.push(sql`(${schema.agents.labels} @> ARRAY['rebalancing']::text[] OR ${schema.agents.labels} @> ARRAY['monitoring']::text[])`);
+      } else if (category === 'uncategorized') {
+        conditions.push(arrayContains(schema.agents.labels, ['uncategorized']));
+      } else {
+        conditions.push(arrayContains(schema.agents.labels, [category]));
+      }
     }
-    conditions.push(not(arrayContains(schema.agents.labels, ['uncategorized'])));
+    if (!includeUncategorized) {
+      // Mặc định ẩn Other/uncategorized — chỉ hiện khi includeUncategorized=true (toggle search ngoài Image 1)
+      if (category !== 'uncategorized') {
+        conditions.push(not(arrayContains(schema.agents.labels, ['uncategorized'])));
+      }
+    }
     return await this.db
       .select()
       .from(schema.agents)
@@ -226,13 +238,17 @@ export class MemoryStore implements Store {
     }));
   }
 
-  public async getAgents(filterActive = true, category?: string, verifiedOnly = false): Promise<schema.Agent[]> {
+  public async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false): Promise<schema.Agent[]> {
     return this.agents.filter((a) => {
       if (filterActive && !a.active) return false;
       if (verifiedOnly && (!a.reachable || !a.hireable)) return false;
-      if (category && category !== 'all' && !a.labels?.includes(category)) return false;
-      // Do not include uncategorized in marketplace
-      if (a.labels?.includes('uncategorized')) return false;
+      if (category && category !== 'all') {
+        const aliasCat = category === 'rebalancing' ? ['rebalancing', 'monitoring'] : [category];
+        if (!a.labels?.some((l) => aliasCat.includes(l))) return false;
+      }
+      if (!includeUncategorized && a.labels?.includes('uncategorized')) return false;
+      // Khi includeUncategorized=true và category==='all' thì hiện cả uncategorized (dùng cho search ngoài)
+      if (includeUncategorized && category === 'uncategorized' && !a.labels?.includes('uncategorized')) return false;
       return true;
     });
   }
