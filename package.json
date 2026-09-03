@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "tsx test/ux-writing.test.ts"
+    "test": "tsx test/ux-writing.test.ts && tsx test/8004scan-live.test.ts && tsx test/full-marketplace-suite.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

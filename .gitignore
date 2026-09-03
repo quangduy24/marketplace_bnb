@@ -31,4 +31,8 @@ worker-configuration.d.ts
 .wrangler/
 
 # Local test scripts
-test/
+test/*
+!test/ux-writing.test.ts
+!test/8004scan-live.test.ts
+!test/full-marketplace-suite.test.ts
+q2.mjs

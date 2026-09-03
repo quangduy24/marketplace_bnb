@@ -15,15 +15,17 @@ import {
   Check,
   BookOpen,
   SlidersHorizontal,
+  RefreshCw,
 } from 'lucide-react';
 
 interface MarketplaceViewProps {
-  agents: AgentData[]; // toàn bộ pool (769) — directory & search mặc định
-  agentsActive?: AgentData[]; // active labeled (143) — 4 stalls Image 1
+  agents: AgentData[]; // Complete agent pool for directory & search
+  agentsActive?: AgentData[]; // Active labeled agents for the 4 stalls
   walletContext: WalletContextState;
   buyerAddress?: string;
   onHireAgent: (payload: any) => Promise<void>;
   network: 'bscTestnet' | 'bscMainnet';
+  onRefreshAgents?: () => Promise<void>;
 }
 
 interface StallMetadata {
@@ -87,8 +89,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   buyerAddress,
   onHireAgent,
   network,
+  onRefreshAgents,
 }) => {
-  // Pool cho 4 stalls (Image 1): ưu tiên agentsActive (143), fallback agents
+  // Pool for 4 stalls: prefer agentsActive, fallback to agents
   const stallPool = agentsActive && agentsActive.length > 0 ? agentsActive : agents;
   // Filters & State
   const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all' | 'uncategorized'>('all');
@@ -102,30 +105,74 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [showGlossary, setShowGlossary] = useState(false);
   const [liveSearchResults, setLiveSearchResults] = useState<AgentData[] | null>(null);
   const [liveSearching, setLiveSearching] = useState(false);
+  const [isSyncingRegistry, setIsSyncingRegistry] = useState(false);
 
-  // Live registry search trên 8004scan (300k+) — luôn bật khi có từ khóa
+  // Manual trigger for background targeted semantic sync from 8004scan
+  const handleManualSync = async () => {
+    if (isSyncingRegistry) return;
+    setIsSyncingRegistry(true);
+    try {
+      const res = await fetch('/api/workers/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'semantic' }),
+      });
+      if (res.ok && onRefreshAgents) {
+        await onRefreshAgents();
+      }
+    } catch (err) {
+      console.warn('Manual sync failed:', err);
+    } finally {
+      setIsSyncingRegistry(false);
+    }
+  };
+
+  // Instant local search filter: 0ms latency for smooth 60 FPS typing
+  const localMatchedAgents = React.useMemo(() => {
+    if (!searchQuery.trim()) return agents;
+    const q = searchQuery.toLowerCase().trim();
+    return agents.filter((a) => {
+      const matchName = a.name?.toLowerCase().includes(q);
+      const matchDesc = a.description?.toLowerCase().includes(q);
+      const matchLabel = a.labels?.some((l) => l.toLowerCase().includes(q));
+      return matchName || matchDesc || matchLabel;
+    });
+  }, [agents, searchQuery]);
+
+  // Background 8004scan registry discovery & auto-persistence (non-blocking)
   useEffect(() => {
     if (!searchQuery.trim()) {
       setLiveSearchResults(null);
       setLiveSearching(false);
       return;
     }
+    const controller = new AbortController();
     setLiveSearching(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/agents?q=${encodeURIComponent(searchQuery.trim())}&live=true&activeOnly=false&includeUncategorized=true`);
+        const res = await fetch(
+          `/api/agents?q=${encodeURIComponent(searchQuery.trim())}&live=true&activeOnly=false&includeUncategorized=true&chainId=${network === 'bscMainnet' ? 56 : 97}`,
+          { signal: controller.signal }
+        );
         if (res.ok) {
           const data = await res.json();
-          setLiveSearchResults(data.agents || []);
+          if (data.agents && data.agents.length > 0) {
+            setLiveSearchResults(data.agents);
+            // Refresh local store if new agents were saved into DB
+            if (onRefreshAgents) onRefreshAgents();
+          }
         }
-      } catch (err) {
-        console.warn('Live search failed', err);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') console.warn('Live search failed:', err);
       } finally {
-        setLiveSearching(false);
+        if (!controller.signal.aborted) setLiveSearching(false);
       }
-    }, 450);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
+    }, 600);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [searchQuery, network, onRefreshAgents]);
 
   // Filter handlers
   const handleStallClick = (cat: CareerCategory | 'uncategorized') => {
@@ -136,7 +183,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     }
   };
 
-  // Đếm uncategorized (Other) cho tab category
+  // Count uncategorized (Other) for category tab
   const uncategorizedCount = agents.filter(
     (a) => (a.labels || []).includes('uncategorized') || !a.labels || a.labels.length === 0
   ).length;
@@ -153,10 +200,16 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     }
   };
 
-  // Pool cho Directory: mặc định toàn bộ agents (769). Khi search có từ khóa dùng live search (769 + 8004scan registry 300k+)
+  // Combined pool: instant local results first, seamlessly enriched with live results
   const directoryPool = (() => {
     if (!searchQuery.trim()) return agents;
-    return liveSearchResults && liveSearchResults.length > 0 ? liveSearchResults : agents;
+    if (liveSearchResults && liveSearchResults.length > 0) {
+      const byId = new Map<string, AgentData>();
+      for (const a of localMatchedAgents) byId.set(a.agentId, a);
+      for (const a of liveSearchResults) byId.set(a.agentId, a);
+      return Array.from(byId.values());
+    }
+    return localMatchedAgents;
   })();
 
   const isLiveMode = Boolean(searchQuery.trim());
@@ -286,9 +339,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       HEALTH FACTOR: {walletContext.healthFactor.toFixed(2)} HF (&lt; 1.15)
                     </span>
                   </div>
-                    <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
-                      Your Venus collateral is near liquidation — immediate seizure risk. Activate a Health Factor Monitoring agent to protect your position.
-                    </p>
+                  <p className="font-sans text-xs text-[#121212] mt-0.5 font-medium leading-snug">
+                    Your Venus collateral is near liquidation — immediate seizure risk. Activate a Health Factor Monitoring agent to protect your position.
+                  </p>
                 </div>
               </div>
 
@@ -335,11 +388,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 <div
                   key={stall.id}
                   onClick={() => handleStallClick(stall.id)}
-                  className={`neo-card p-3 sm:p-3.5 cursor-pointer flex flex-col justify-between relative transition-all duration-150 ${
-                    isSelected
-                      ? 'translate-x-[-2px] translate-y-[-2px] neo-shadow ring-2 ring-[#121212]'
-                      : 'hover:translate-x-[-1px] hover:translate-y-[-1px] hover:neo-shadow-sm'
-                  } ${isEmergency ? 'border-[#FF4365] ring-2 ring-[#FF4365]' : ''}`}
+                  className={`neo-card p-3 sm:p-3.5 cursor-pointer flex flex-col justify-between relative transition-all duration-150 ${isSelected
+                    ? 'translate-x-[-2px] translate-y-[-2px] neo-shadow ring-2 ring-[#121212]'
+                    : 'hover:translate-x-[-1px] hover:translate-y-[-1px] hover:neo-shadow-sm'
+                    } ${isEmergency ? 'border-[#FF4365] ring-2 ring-[#FF4365]' : ''}`}
                   style={{
                     borderTop: `5px solid ${stall.accent}`,
                     backgroundColor: isSelected ? '#FFFFFF' : '#FAF7F0',
@@ -423,9 +475,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                           e.stopPropagation();
                           handleStallClick(stall.id);
                         }}
-                        className={`neo-btn text-[9px] font-mono-tech font-black px-2 py-1 ${
-                          isSelected ? 'bg-[#121212] text-white' : 'bg-[#FAF7F0] text-[#121212]'
-                        }`}
+                        className={`neo-btn text-[9px] font-mono-tech font-black px-2 py-1 ${isSelected ? 'bg-[#121212] text-white' : 'bg-[#FAF7F0] text-[#121212]'
+                          }`}
                       >
                         {isSelected ? '✓ FILTERED' : 'VIEW AGENTS'}
                       </button>
@@ -453,7 +504,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
         {/* RIGHT 48%: Dedicated Search & Agent Directory (As Originally Requested) */}
         <div className="w-full lg:w-[48%] h-full bg-[#FFFFFF] flex flex-col p-3 sm:p-4 overflow-hidden">
-              {/* Directory Header + Active Probed Status */}
+          {/* Directory Header + Active Probed Status */}
           <div className="border-b-2 border-[#121212] pb-2.5 mb-2.5 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
@@ -463,7 +514,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     AGENT DIRECTORY
                   </h3>
                   <span className="font-mono-tech text-[9px] text-[#6A6A6A] mt-0.5 block">
-                    Showing {filteredAgents.length} {isLiveMode ? 'live registry results' : `of ${agents.length} agents (all)`}
+                    Showing {filteredAgents.length} {isLiveMode ? 'live registry results' : `of ${agents.length} agents`}
                     {isLiveMode && liveSearching ? ' · searching 8004scan…' : ''}
                     {isLiveMode && liveSearchResults && liveSearchResults.length > 0 ? ' (registry 300k+)' : ''}
                   </span>
@@ -471,6 +522,17 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               </div>
 
               <div className="flex items-center space-x-2">
+                {/* Sync scan */}
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncingRegistry}
+                  className="neo-btn bg-[#FFE500] hover:bg-[#FAF7F0] text-[#121212] px-2 py-1 text-[10px] font-mono-tech font-black flex items-center space-x-1.5 border border-[#121212] neo-shadow-sm disabled:opacity-50"
+                  title="Sync and categorize new agents from 8004scan into database"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncingRegistry ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingRegistry ? 'SYNCING...' : 'SYNC SCAN'}</span>
+                </button>
+
                 {/* Verified only checkbox */}
                 <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
                   <input
@@ -489,61 +551,55 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               <span className="text-[#8A8A8A] font-bold px-1 shrink-0 text-[9px]">CATEGORY:</span>
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'all'
-                    ? 'bg-[#121212] text-white border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FFE500]'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'all'
+                  ? 'bg-[#121212] text-white border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FFE500]'
+                  }`}
               >
                 ALL ({agents.length})
               </button>
               <button
                 onClick={() => handleStallClick('health_factor')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'health_factor'
-                    ? 'bg-[#FF4365] text-white border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF4365]/20'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'health_factor'
+                  ? 'bg-[#FF4365] text-white border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF4365]/20'
+                  }`}
               >
                 Health Factor Monitoring
               </button>
               <button
                 onClick={() => handleStallClick('yield')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'yield'
-                    ? 'bg-[#00F59B] text-[#121212] border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#00F59B]/20'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'yield'
+                  ? 'bg-[#00F59B] text-[#121212] border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#00F59B]/20'
+                  }`}
               >
                 Yield Optimisation
               </button>
               <button
                 onClick={() => handleStallClick('grid')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'grid'
-                    ? 'bg-[#FF7828] text-white border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF7828]/20'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'grid'
+                  ? 'bg-[#FF7828] text-white border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#FF7828]/20'
+                  }`}
               >
                 Grid Trading
               </button>
               <button
                 onClick={() => handleStallClick('rebalancing')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'rebalancing'
-                    ? 'bg-[#38BDF8] text-[#121212] border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#38BDF8]/20'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'rebalancing'
+                  ? 'bg-[#38BDF8] text-[#121212] border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#38BDF8]/20'
+                  }`}
               >
                 Rebalancing
               </button>
               <button
                 onClick={() => handleStallClick('uncategorized')}
-                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'uncategorized'
-                    ? 'bg-[#A0A0A0] text-white border-[#121212]'
-                    : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#A0A0A0]/30'
-                }`}
+                className={`px-2 py-0.5 border text-[9px] font-bold shrink-0 transition-colors ${selectedCategory === 'uncategorized'
+                  ? 'bg-[#A0A0A0] text-white border-[#121212]'
+                  : 'bg-[#FFFFFF] text-[#121212] border-[#121212] hover:bg-[#A0A0A0]/30'
+                  }`}
               >
                 Uncategorized ({uncategorizedCount})
               </button>
@@ -618,9 +674,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 return (
                   <div
                     key={agent.agentId}
-                    className={`neo-card p-3 rounded-none flex flex-col justify-between transition-transform ${
-                      isRecommended ? 'border-2 border-[#FF4365] bg-[#FFFBFB]' : 'bg-[#FFFFFF]'
-                    } hover:translate-x-[-1px] hover:translate-y-[-1px]`}
+                    className={`neo-card p-3 rounded-none flex flex-col justify-between transition-transform ${isRecommended ? 'border-2 border-[#FF4365] bg-[#FFFBFB]' : 'bg-[#FFFFFF]'
+                      } hover:translate-x-[-1px] hover:translate-y-[-1px]`}
                   >
                     {/* Recommended Alert Badge */}
                     {isRecommended && (
@@ -649,23 +704,22 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             />
                           </div>
 
-                            <div>
+                          <div>
                             <div className="flex items-center space-x-1.5 flex-wrap">
                               {(normalizedLabels.length > 0 ? normalizedLabels : [career]).map((tag) => {
                                 const label = tag === 'health_factor' ? 'HEALTH FACTOR MONITORING' : tag === 'rebalancing' ? 'REBALANCING' : tag === 'grid' ? 'GRID TRADING' : tag === 'yield' ? 'YIELD OPTIMISATION' : (tag as string).toUpperCase();
                                 return (
-                                <span
-                                  key={tag}
-                                  className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 font-mono-tech"
-                                >
-                                  {label}
-                                </span>
+                                  <span
+                                    key={tag}
+                                    className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2 font-mono-tech"
+                                  >
+                                    {label}
+                                  </span>
                                 );
                               })}
                               <span
-                                className={`w-2 h-2 rounded-full border border-[#121212] ${
-                                  agent.hireable && agent.active ? 'bg-[#00F59B]' : agent.reachable ? 'bg-[#FFE500]' : 'bg-[#A0A0A0]'
-                                }`}
+                                className={`w-2 h-2 rounded-full border border-[#121212] ${agent.hireable && agent.active ? 'bg-[#00F59B]' : agent.reachable ? 'bg-[#FFE500]' : 'bg-[#A0A0A0]'
+                                  }`}
                               />
                               <span className="font-mono-tech text-[9px] font-bold text-[#059669]">
                                 {agent.hireable && agent.active ? 'ONLINE' : agent.reachable ? 'REACHABLE' : !agent.active ? 'OFFLINE' : 'UNPROBED'}
@@ -734,11 +788,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     <div className="flex items-center justify-between mt-2.5 pt-2 border-t-2 border-[#121212]">
                       <button
                         onClick={() => toggleCompareSelect(agent)}
-                        className={`neo-badge text-[9px] px-2 py-0.5 ${
-                          isCompareChecked
-                            ? 'bg-[#FFE500] text-[#121212] border-[#121212]'
-                            : 'bg-[#FAF7F0] text-[#6A6A6A] hover:text-[#121212]'
-                        }`}
+                        className={`neo-badge text-[9px] px-2 py-0.5 ${isCompareChecked
+                          ? 'bg-[#FFE500] text-[#121212] border-[#121212]'
+                          : 'bg-[#FAF7F0] text-[#6A6A6A] hover:text-[#121212]'
+                          }`}
                       >
                         {isCompareChecked ? '✓ IN COMPARISON' : '+ COMPARE SPECS'}
                       </button>
@@ -759,11 +812,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                             setAgentToHire(agent);
                           }}
                           disabled={!agent.hireable}
-                          className={`neo-btn font-display font-black text-xs px-3.5 py-1 flex items-center space-x-1 ${
-                            agent.hireable
-                              ? 'bg-[#00F59B] text-[#121212] hover:bg-[#FFE500]'
-                              : 'bg-[#E5E0D5] text-[#8A8A8A] cursor-not-allowed'
-                          }`}
+                          className={`neo-btn font-display font-black text-xs px-3.5 py-1 flex items-center space-x-1 ${agent.hireable
+                            ? 'bg-[#00F59B] text-[#121212] hover:bg-[#FFE500]'
+                            : 'bg-[#E5E0D5] text-[#8A8A8A] cursor-not-allowed'
+                            }`}
                         >
                           <Zap className="w-3.5 h-3.5 fill-[#121212]" />
                           <span>{agent.hireable ? 'HIRE AGENT' : 'NOT HIREABLE'}</span>
@@ -794,11 +846,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             <button
               disabled={selectedForCompare.length < 2}
               onClick={() => setShowCompareModal(true)}
-              className={`neo-btn font-mono-tech text-xs font-bold px-3 py-1 ${
-                selectedForCompare.length === 2
-                  ? 'bg-[#121212] text-white'
-                  : 'bg-[#FAF7F0] text-[#8A8A8A] opacity-60 cursor-not-allowed'
-              }`}
+              className={`neo-btn font-mono-tech text-xs font-bold px-3 py-1 ${selectedForCompare.length === 2
+                ? 'bg-[#121212] text-white'
+                : 'bg-[#FAF7F0] text-[#8A8A8A] opacity-60 cursor-not-allowed'
+                }`}
             >
               VIEW COMPARISON
             </button>

@@ -207,7 +207,12 @@ export default function App() {
     fetchContext();
   }, [fetchAgents, fetchAgentsActive, fetchHires, fetchContext]);
 
-  // Immediate Backend → Frontend sync: SSE push after every 24h DB update (no polling)
+  // Unified refresh for all agents (general directory + active labeled stalls)
+  const refreshAllAgents = useCallback(async () => {
+    await Promise.all([fetchAgents(), fetchAgentsActive()]);
+  }, [fetchAgents, fetchAgentsActive]);
+
+  // Immediate Backend → Frontend sync: SSE push after every DB update (no polling)
   useEffect(() => {
     let es: EventSource | null = null;
     try {
@@ -215,24 +220,24 @@ export default function App() {
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.type === 'agents-updated') fetchAgents();
+          if (data.type === 'agents-updated') refreshAllAgents();
         } catch {}
       };
     } catch {}
     // Fallback for Vercel serverless (SSE may timeout): refetch when tab becomes visible/focused
     const onVisible = () => {
-      if (!document.hidden) fetchAgents();
+      if (!document.hidden) refreshAllAgents();
     };
     document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', fetchAgents);
+    window.addEventListener('focus', refreshAllAgents);
     return () => {
       try {
         es?.close();
       } catch {}
       document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', fetchAgents);
+      window.removeEventListener('focus', refreshAllAgents);
     };
-  }, [fetchAgents]);
+  }, [refreshAllAgents]);
 
   // Handle hiring an agent
   const handleHireAgent = async (payload: {
@@ -460,6 +465,7 @@ export default function App() {
               buyerAddress={walletAddress}
               onHireAgent={handleHireAgent}
               network={network}
+              onRefreshAgents={refreshAllAgents}
             />
           )}
 
@@ -482,6 +488,7 @@ export default function App() {
                 setFocusedChamber(cat);
                 navigate('agents');
               }}
+              onSyncJobState={handleSyncJobState}
             />
           )}
 

@@ -55,33 +55,58 @@ export async function runProbeWorker() {
   let reachableCount = 0;
   let hireableCount = 0;
 
-  for (const agent of allAgents) {
-    // Primary signal: real indexer endpoint verification (stored in reachable at sync time)
-    let reachable = agent.reachable === true;
+  const CHUNK_SIZE = 25;
+  for (let i = 0; i < allAgents.length; i += CHUNK_SIZE) {
+    const chunk = allAgents.slice(i, i + CHUNK_SIZE);
+    await Promise.all(
+      chunk.map(async (agent) => {
+        const raw = (agent.rawJson as any) || {};
 
-    // Fallback: live probe of the A2A endpoint
-    if (!reachable) {
-      const uri = resolveProbeUri(agent);
-      if (uri) {
-        reachable = await probeAgentEndpoint(uri);
-      }
-    }
+        // Primary verification: verified on 8004scan indexer or previously marked reachable
+        const isVerifiedOnChain =
+          raw.endpointVerified === true ||
+          raw.endpointVerified === 'true' ||
+          raw.isVerified === true ||
+          raw.isVerified === 'true' ||
+          agent.reachable === true;
 
-    const hasEscrowConfig = agent.supportedProtocols?.includes('erc8183') || false;
-    const isHireable =
-      Boolean(agent.active) &&
-      reachable &&
-      (Boolean(agent.x402Supported) || Boolean(agent.agentUri) || hasEscrowConfig);
+        let reachable = isVerifiedOnChain;
 
-    if (reachable) reachableCount++;
-    if (isHireable) hireableCount++;
+        // Fallback: live probe of the A2A endpoint
+        if (!reachable) {
+          const uri = resolveProbeUri(agent);
+          if (uri) {
+            reachable = await probeAgentEndpoint(uri);
+          }
+        }
 
-    await store.upsertAgent({
-      chainId: agent.chainId,
-      agentId: agent.agentId,
-      reachable,
-      hireable: isHireable,
-    });
+        const hasEscrowConfig = agent.supportedProtocols?.includes('erc8183') || false;
+        const hasPaymentRail =
+          Boolean(agent.x402Supported) ||
+          Boolean(agent.agentUri) ||
+          (Array.isArray(agent.supportedProtocols) && agent.supportedProtocols.length > 0) ||
+          Boolean(raw.hourlyCostU) ||
+          hasEscrowConfig;
+
+        // An agent is active if it has verification, reachable endpoint, or previous active state
+        const isActive = Boolean(agent.active) || reachable || hasPaymentRail;
+
+        // An agent is hireable if it is active and has a verifiable payment or interaction rail
+        const isHireable = isActive && (hasPaymentRail || reachable || isVerifiedOnChain);
+
+        if (reachable) reachableCount++;
+        if (isHireable) hireableCount++;
+
+        await store.upsertAgent({
+          chainId: agent.chainId,
+          agentId: agent.agentId,
+          active: isActive,
+          status: isActive ? 'active' : 'inactive',
+          reachable,
+          hireable: isHireable,
+        });
+      })
+    );
   }
 
   return { reachableCount, hireableCount, total: allAgents.length };

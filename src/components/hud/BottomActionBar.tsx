@@ -16,11 +16,12 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
   onSelectHiredSlot,
   onNavigate,
 }) => {
-  // Unlimited slots: Show all hired agents plus inviting empty slots
-  const minSlots = Math.max(4, hires.length + 1);
+  // Unlimited slots: Show all active hired agents plus inviting empty slots (exclude cancelled and rejected)
+  const activeHires = hires.filter((h) => h.state !== 'cancelled' && h.state !== 'rejected');
+  const minSlots = Math.max(4, activeHires.length + 1);
   const slots: (HireData | null)[] = [
-    ...hires,
-    ...Array.from({ length: minSlots - hires.length }, () => null),
+    ...activeHires,
+    ...Array.from({ length: minSlots - activeHires.length }, () => null),
   ];
 
   return (
@@ -40,7 +41,7 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
             </span>
           </div>
           <span className="font-mono-tech text-[10px] text-[#6A6A6A]">
-            {hires.length} ACTIVE {hires.length === 1 ? 'AGENT' : 'AGENTS'} // NO LIMIT
+            {activeHires.length} ACTIVE {activeHires.length === 1 ? 'AGENT' : 'AGENTS'} // NO LIMIT
           </span>
         </div>
       </div>

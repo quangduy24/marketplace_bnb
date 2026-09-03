@@ -7,12 +7,14 @@ interface HistoryBookViewProps {
   hires: HireData[];
   agents: AgentData[];
   onFocusAgentInHouse: (category: CareerCategory) => void;
+  onSyncJobState?: (hireId: string, newState: string, lastAction?: string) => Promise<void>;
 }
 
 export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
   hires,
   agents,
   onFocusAgentInHouse,
+  onSyncJobState,
 }) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterState, setFilterState] = useState<string>('all');
@@ -74,11 +76,13 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                 className="bg-transparent text-xs font-bold text-[#121212] focus:outline-none uppercase"
               >
                 <option value="all">ALL STATES</option>
+                <option value="pending">PENDING</option>
                 <option value="funded">FUNDED</option>
                 <option value="running">RUNNING</option>
                 <option value="submitted">SUBMITTED</option>
                 <option value="paid">PAID</option>
                 <option value="rejected">REJECTED</option>
+                <option value="cancelled">CANCELLED</option>
               </select>
             </div>
           </div>
@@ -120,6 +124,8 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                       ? 'bg-[#FFE500] text-[#121212]'
                       : hire.state === 'running' || hire.state === 'funded'
                       ? 'bg-[#38BDF8] text-[#121212]'
+                      : hire.state === 'cancelled'
+                      ? 'bg-[#71717A] text-white'
                       : 'bg-[#FF4365] text-white';
 
                   return (
@@ -180,18 +186,37 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <span className="text-[#A0A0A0]">— pending on-chain tx</span>
+                          <span className="text-[#A0A0A0]">
+                            {hire.state === 'cancelled' ? '— cancelled before tx' : '— pending on-chain tx'}
+                          </span>
                         )}
                       </td>
 
                       <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={() => onFocusAgentInHouse(career)}
-                          className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1 ml-auto"
-                        >
-                          <MapPin className="w-3 h-3" />
-                          <span>VIEW</span>
-                        </button>
+                        <div className="inline-flex items-center space-x-1.5 justify-end">
+                          {hire.state === 'pending' && onSyncJobState && (
+                            <button
+                              onClick={() =>
+                                onSyncJobState(
+                                  hire.id,
+                                  'cancelled',
+                                  'Hire agreement revoked by buyer before escrow funding'
+                                )
+                              }
+                              className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[10px] px-2 py-1"
+                              title="Revoke / Cancel this pending hire"
+                            >
+                              REVOKE
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onFocusAgentInHouse(career)}
+                            className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            <span>VIEW</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

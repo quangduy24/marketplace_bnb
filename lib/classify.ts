@@ -6,10 +6,29 @@
 export type CareerCategory = 'rebalancing' | 'grid' | 'health_factor' | 'yield' | 'uncategorized';
 
 export const CAREER_KEYWORDS: Record<Exclude<CareerCategory, 'uncategorized'>, string[]> = {
-  rebalancing: ['rebalance', 'rebalancing', 'lp range', 'reset position', 'pancake', 'concentrated liquidity'],
-  grid: ['grid', 'range trading', 'dca', 'limit ladder', 'grid trading', 'market-making'],
-  health_factor: ['health factor', 'liquidation', 'ltv', 'collateral', 'venus', 'aave'],
-  yield: ['yield', 'apy', 'vault', 'farm', 'harvest', 'allocate'],
+  rebalancing: [
+    'rebalance', 'rebalancing', 'lp range', 'reset position', 'pancake', 'pancakeswap',
+    'concentrated liquidity', 'liquidity provider', 'position management', 'v3 range',
+    'uniswap', 'biswap', 'thena', 'clmm', 'rebalancer',
+    'monitor', 'monitoring', 'watch', 'watcher', 'alert', 'tracker', 'tracking', 'sentinel',
+    'watchtower'
+  ],
+  grid: [
+    'grid', 'range trading', 'dca', 'limit ladder', 'grid trading', 'market-making',
+    'market maker', 'trading bot', 'order ladder', 'laddering', 'twap', 'arbitrage',
+    'orderbook', 'automated trading', 'strategy bot', 'trade', 'trading', 'price', 'guess_price',
+    'limit-ladder'
+  ],
+  health_factor: [
+    'health factor', 'health-factor', 'liquidation', 'ltv', 'collateral', 'venus', 'aave', 'lending',
+    'borrow', 'debt ratio', 'insolvency', 'margin guard', 'loan risk', 'loan shield',
+    'cdp', 'solvency', 'liquidation protector', 'guardian', 'shield', 'lending-risk'
+  ],
+  yield: [
+    'yield', 'apy', 'apr', 'vault', 'farm', 'harvest', 'allocate', 'auto-compound',
+    'compounding', 'beefy', 'alpaca', 'staking', 'passive income', 'liquidity mining',
+    'earn', 'strategy vault'
+  ],
 };
 
 export interface ClassificationResult {

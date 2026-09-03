@@ -10,7 +10,7 @@ import { runSemanticSync, runIncrementalSync, runLatestSync } from '../workers/s
 import { runClassificationWorker } from '../workers/classify.ts';
 import { runProbeWorker } from '../workers/probe.ts';
 import { runClassificationUnitTests } from '../lib/classify.ts';
-import { searchAgentsSemantic, mapRawToAgent } from '../lib/8004scan.ts';
+import { searchAgentsSemantic, mapRawToAgent, mergeLiveAgent, isSemanticMatchRelevant } from '../lib/8004scan.ts';
 
 const app = new Hono().basePath('/api');
 
@@ -31,20 +31,54 @@ app.get('/agents', async (c) => {
   const live = c.req.query('live') === 'true';
   const wallet = c.req.query('wallet');
   const q = c.req.query('q');
+  const chainIdLive = Number(c.req.query('chainId') ?? 56) === 97 ? 97 : 56;
+  const liveLimit = Math.min(Math.max(Number(c.req.query('limit') ?? 50) || 50, 1), 100);
 
-  let pool = await store.getAgents(activeOnly, category, verifiedOnly, includeUncategorized);
+  let pool: any[] = await store.getAgents(activeOnly, category, verifiedOnly, includeUncategorized);
 
-  // Live registry search (300k+ trên 8004scan)
+  // Live registry search (300k+ trên 8004scan, real-time qua X-API-Key)
   if (live && q) {
     try {
-      const liveRaw = await searchAgentsSemantic(q, 56, 50, 0);
-      const existingIds = new Set(pool.map((a: any) => a.agentId));
-      const fresh = liveRaw
+      const liveRaw = await searchAgentsSemantic(q, chainIdLive, liveLimit, 0);
+      const localById = new Map<string, any>(pool.map((a: any) => [a.agentId, a]));
+      const semanticMatches = liveRaw
         .map((raw) => mapRawToAgent(raw))
-        .filter((a: any) => a && a.agentId && !existingIds.has(a.agentId)) as any[];
-      pool = [...pool, ...fresh];
+        .filter((a: any) => {
+          if (!a || !a.agentId) return false;
+          // Similarity threshold: giữ semantic thật, bỏ nhiễu
+          return isSemanticMatchRelevant(a.rawJson?.similarityScore);
+        }) as any[];
+      const liveCandidates = semanticMatches.map((a: any) => mergeLiveAgent(localById.get(a.agentId), a));
+
+      // Auto-persist relevant 8004scan search results to permanently enrich local store
+      for (const candidate of liveCandidates) {
+        store.upsertAgent(candidate).catch((err: any) => {
+          console.warn('[LiveSearch] Failed to persist agent to store:', candidate.agentId, err);
+        });
+      }
+
+      // Stage 1 filters applied to live pool as well as local pool
+      const stage1Filtered = liveCandidates.filter((a: any) => {
+        if (verifiedOnly && !(a.active && a.reachable && a.hireable)) return false;
+        if (!verifiedOnly && activeOnly && !a.active) return false;
+        const labels = (a.labels || []).map((l: string) => (l === 'monitoring' ? 'rebalancing' : l));
+        if (category === 'uncategorized') return labels.includes('uncategorized') || labels.length === 0;
+        if (category !== 'all') return labels.includes(category);
+        if (!includeUncategorized) return !labels.includes('uncategorized');
+        return true;
+      });
+
+      const liveIds = new Set(stage1Filtered.map((a: any) => a.agentId));
       const lower = q.toLowerCase();
-      pool = pool.filter((a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower)));
+      // Substring filter CHỈ áp cho pool local — kết quả semantic giữ nguyên
+      const localMatches = pool.filter(
+        (a) =>
+          !liveIds.has(a.agentId) &&
+          (a.name?.toLowerCase().includes(lower) ||
+            a.description?.toLowerCase().includes(lower) ||
+            a.labels?.some((l: string) => l.toLowerCase().includes(lower)))
+      );
+      pool = [...localMatches, ...stage1Filtered];
     } catch (err) {
       console.warn('[LiveSearch] 8004scan search failed, falling back to local pool:', err);
     }

@@ -76,11 +76,20 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
   onNavigateMarket,
   buyerAddress,
 }) => {
-  const totalSpent = hires.reduce((sum, h) => sum + Number(h.budgetU || 0), 0);
+  // Only count funded or completed hires toward actual expenditure (exclude cancelled, rejected, and unpaid pending)
+  const paidHires = hires.filter(
+    (h) => h.state === 'funded' || h.state === 'running' || h.state === 'submitted' || h.state === 'paid'
+  );
+  const activeOrPaidHires = hires.filter((h) => h.state !== 'cancelled' && h.state !== 'rejected');
+
+  const totalSpent = paidHires.reduce((sum, h) => sum + Number(h.budgetU || 0), 0);
 
   let totalEarnedProtected = 0;
   DISCIPLINE_METRICS.forEach((dm) => {
-    const hasHire = hires.some((h) => h.catalog === dm.id);
+    const hasHire = activeOrPaidHires.some((h) => {
+      const c = (h.catalog || 'rebalancing') as string;
+      return (c === 'monitoring' ? 'rebalancing' : c) === dm.id;
+    });
     if (hasHire) {
       totalEarnedProtected += dm.valueProtectedEarned;
     }
@@ -161,7 +170,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
       {/* 4 Discipline Metric Cards */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto pr-1">
         {DISCIPLINE_METRICS.map((dm) => {
-          const rawHasHire = hires.some((h) => {
+          const rawHasHire = activeOrPaidHires.some((h) => {
             const c = (h.catalog || 'rebalancing') as string;
             return (c === 'monitoring' ? 'rebalancing' : c) === dm.id;
           });
@@ -208,7 +217,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
             );
           }
 
-          const relevantHires = hires.filter((h) => {
+          const relevantHires = paidHires.filter((h) => {
             const c = (h.catalog || 'rebalancing') as string;
             const n = c === 'monitoring' ? 'rebalancing' : c;
             return n === dm.id;

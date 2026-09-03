@@ -81,7 +81,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     return hires.filter((h) => {
       const c = (h.catalog || 'rebalancing') as string;
       const normalized = c === 'monitoring' ? 'rebalancing' : c;
-      return normalized === cat;
+      return normalized === cat && h.state !== 'cancelled';
     });
   };
 
@@ -312,6 +312,22 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                       + ACTIVATE MORE
                     </button>
 
+                    {hire.state === 'pending' && (
+                      <button
+                        onClick={() =>
+                          onSyncJobState(
+                            hire.id,
+                            'cancelled',
+                            'Hire agreement revoked by buyer before escrow funding'
+                          )
+                        }
+                        className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[10px] px-2.5 py-0.5"
+                        title="Revoke / Cancel this pending hire"
+                      >
+                        REVOKE
+                      </button>
+                    )}
+
                     {hire.state === 'funded' && (
                       <button
                         onClick={() => onSyncJobState(hire.id, 'running', 'Agent listening to live BSC blocks')}
@@ -415,7 +431,26 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
               )}
             </div>
 
-            <div className="mt-4 pt-3 border-t-2 border-[#121212] flex justify-end">
+            <div className="mt-4 pt-3 border-t-2 border-[#121212] flex items-center justify-between">
+              {selectedJobToInspect.state === 'pending' ? (
+                <button
+                  onClick={async () => {
+                    await onSyncJobState(
+                      selectedJobToInspect.id,
+                      'cancelled',
+                      'Hire agreement revoked by buyer before escrow funding'
+                    );
+                    setSelectedJobToInspect(null);
+                  }}
+                  className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-mono-tech text-xs font-bold px-3 py-1.5 flex items-center space-x-1"
+                  title="Revoke and cancel this pending hire"
+                >
+                  <span>✕</span>
+                  <span>REVOKE / CANCEL HIRE</span>
+                </button>
+              ) : (
+                <div />
+              )}
               <button
                 onClick={() => setSelectedJobToInspect(null)}
                 className="neo-btn bg-[#121212] text-white font-mono-tech text-xs font-bold px-4 py-1.5"

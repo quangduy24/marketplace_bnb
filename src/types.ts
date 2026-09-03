@@ -5,7 +5,7 @@
 
 export type CareerCategory = 'rebalancing' | 'grid' | 'health_factor' | 'yield';
 
-export type JobState = 'funded' | 'running' | 'submitted' | 'paid' | 'rejected' | 'expired';
+export type JobState = 'pending' | 'funded' | 'running' | 'submitted' | 'paid' | 'rejected' | 'expired' | 'cancelled';
 
 export interface AgentData {
   chainId: number;

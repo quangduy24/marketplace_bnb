@@ -14,7 +14,7 @@ import { runClassificationWorker } from './workers/classify.ts';
 import { runProbeWorker } from './workers/probe.ts';
 import { runClassificationUnitTests } from './lib/classify.ts';
 import { addSseClient, broadcast } from './lib/sync-broadcast.ts';
-import { searchAgentsSemantic, mapRawToAgent } from './lib/8004scan.ts';
+import { searchAgentsSemantic, mapRawToAgent, mergeLiveAgent, isSemanticMatchRelevant } from './lib/8004scan.ts';
 
 async function startServer() {
   const app = express();
@@ -51,30 +51,62 @@ async function startServer() {
 
   // List & Rank Agents with 2-Stage Recommendation Engine
   app.get('/api/agents', async (req, res) => {
-    const { category, activeOnly = 'true', verifiedOnly = 'false', includeUncategorized = 'false', live = 'false', wallet, q } = req.query;
+    const { category, activeOnly = 'true', verifiedOnly = 'false', includeUncategorized = 'false', live = 'false', wallet, q, chainId: chainIdParam, limit: limitParam } = req.query;
     const isActiveOnly = activeOnly === 'true';
     const isVerifiedOnly = verifiedOnly === 'true';
     const includeUncat = includeUncategorized === 'true';
     const categoryStr = (category as string) || 'all';
+    const chainIdLive = Number(chainIdParam ?? 56) === 97 ? 97 : 56;
+    const liveLimit = Math.min(Math.max(Number(limitParam ?? 50) || 50, 1), 100);
 
     // Stage 1: Hard SQL/Store filter (real DB when configured)
     // verifiedOnly adds reachable && hireable; default lists every active labeled agent.
     // includeUncategorized=true dùng cho search ngoài Image 1 để chạm 769 (bao gồm inactive & Other)
-    let pool = await store.getAgents(isActiveOnly, categoryStr, isVerifiedOnly, includeUncat);
+    let pool: any[] = await store.getAgents(isActiveOnly, categoryStr, isVerifiedOnly, includeUncat);
 
-    // Live registry search (300k+ trên 8004scan) — khi user search Include inactive & Other để có nhiều kết quả hơn
+    // Live registry search (300k+ trên 8004scan, real-time qua API key) — khi user search
     if (live === 'true' && q && typeof q === 'string') {
       try {
-        const liveRaw = await searchAgentsSemantic(String(q), 56, 50, 0);
-        const existingIds = new Set(pool.map((a: any) => a.agentId));
-        const fresh = liveRaw
+        const liveRaw = await searchAgentsSemantic(String(q), chainIdLive, liveLimit, 0);
+        const localById = new Map<string, any>(pool.map((a: any) => [a.agentId, a]));
+        const semanticMatches = liveRaw
           .map((raw) => mapRawToAgent(raw))
-          .filter((a: any) => a && a.agentId && !existingIds.has(a.agentId)) as any[];
-        pool = [...pool, ...fresh];
+          .filter((a: any) => {
+            if (!a || !a.agentId) return false;
+            // similarity threshold: giữ kết quả semantic thật, bỏ nhiễu
+            return isSemanticMatchRelevant(a.rawJson?.similarityScore);
+          }) as any[];
+        const liveCandidates = semanticMatches.map((a: any) => mergeLiveAgent(localById.get(a.agentId), a));
+
+        // Auto-persist relevant 8004scan search results to permanently enrich local store
+        for (const candidate of liveCandidates) {
+          store.upsertAgent(candidate).catch((err: any) => {
+            console.warn('[LiveSearch] Failed to persist agent to store:', candidate.agentId, err);
+          });
+        }
+
+        // Stage 1 filters applied to live pool as well as local pool (verifiedOnly/category/uncategorized)
+        const stage1Filtered = liveCandidates.filter((a: any) => {
+          if (isVerifiedOnly && !(a.active && a.reachable && a.hireable)) return false;
+          if (!isVerifiedOnly && isActiveOnly && !a.active) return false;
+          const labels = (a.labels || []).map((l: string) => (l === 'monitoring' ? 'rebalancing' : l));
+          if (categoryStr === 'uncategorized') return labels.includes('uncategorized') || labels.length === 0;
+          if (categoryStr !== 'all') return labels.includes(categoryStr);
+          if (!includeUncat) return !labels.includes('uncategorized');
+          return true;
+        });
+
+        // Substring filter CHỈ áp cho pool local — kết quả semantic (đã qua similarity threshold) giữ nguyên
+        const liveIds = new Set(stage1Filtered.map((a: any) => a.agentId));
         const lower = q.toLowerCase();
-        pool = pool.filter(
-          (a) => a.name?.toLowerCase().includes(lower) || a.description?.toLowerCase().includes(lower) || a.labels?.some((l: string) => l.toLowerCase().includes(lower))
+        const localMatches = pool.filter(
+          (a: any) =>
+            !liveIds.has(a.agentId) &&
+            (a.name?.toLowerCase().includes(lower) ||
+              a.description?.toLowerCase().includes(lower) ||
+              a.labels?.some((l: string) => l.toLowerCase().includes(lower)))
         );
+        pool = [...localMatches, ...stage1Filtered];
       } catch (err) {
         console.warn('[LiveSearch] 8004scan search failed, falling back to local pool:', err);
       }
@@ -322,10 +354,10 @@ async function startServer() {
           broadcast({ type: 'agents-updated', mode: 'semantic', result, at: new Date().toISOString() });
           console.log('[AutoSync] Initial semantic sync done:', result);
         } else {
-          console.log(`[AutoSync] Agents table has ${total} rows — running immediate latest sync (60m schedule)...`);
-          const result = await runLatestSync();
-          broadcast({ type: 'agents-updated', mode: 'latest', result, at: new Date().toISOString() });
-          console.log('[AutoSync] Immediate latest sync (1000) done:', result);
+          console.log(`[AutoSync] Agents table has ${total} rows — running immediate targeted semantic sync (60m schedule)...`);
+          const result = await runSemanticSync();
+          broadcast({ type: 'agents-updated', mode: 'semantic', result, at: new Date().toISOString() });
+          console.log('[AutoSync] Immediate targeted semantic sync done:', result);
         }
       } catch (err) {
         console.warn('[AutoSync] Initial sync failed:', err);
@@ -333,9 +365,9 @@ async function startServer() {
 
       setInterval(async () => {
         try {
-          const result = await runLatestSync();
-          broadcast({ type: 'agents-updated', mode: 'latest', result, at: new Date().toISOString() });
-          console.log('[AutoSync] 60m latest sync (1000) done:', result);
+          const result = await runSemanticSync();
+          broadcast({ type: 'agents-updated', mode: 'semantic', result, at: new Date().toISOString() });
+          console.log('[AutoSync] 60m targeted semantic sync done:', result);
         } catch (err) {
           console.warn('[AutoSync] Interval sync failed:', err);
         }

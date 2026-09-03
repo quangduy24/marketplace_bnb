@@ -8,10 +8,34 @@ import { searchAgentsSemantic, fetchRecentAgents, sleep, mapRawToAgent } from '.
 import { store } from '../lib/supabase.ts';
 
 const CATEGORY_QUERIES = {
-  rebalancing: ['rebalancing agent', 'PancakeSwap V3 LP range', 'concentrated liquidity reset'],
-  grid: ['grid trading', 'range trading bot', 'DCA grid', 'limit ladder market-making'],
-  health_factor: ['health factor', 'liquidation protection', 'Venus Aave loan agent'],
-  yield: ['yield farming', 'APY vault', 'harvest allocate capital'],
+  rebalancing: [
+    'rebalancing agent',
+    'PancakeSwap V3 LP range',
+    'concentrated liquidity reset',
+    'uniswap v3 liquidity manager',
+    'thena clmm rebalancer',
+  ],
+  grid: [
+    'grid trading',
+    'range trading bot',
+    'DCA grid',
+    'limit ladder market-making',
+    'automated orderbook grid bot',
+  ],
+  health_factor: [
+    'health factor',
+    'liquidation protection',
+    'Venus Aave loan agent',
+    'collateral ratio guard',
+    'lending position protector',
+  ],
+  yield: [
+    'yield farming',
+    'APY vault',
+    'harvest allocate capital',
+    'auto-compounding vault',
+    'beefy alpaca yield optimizer',
+  ],
 };
 
 const MAX_PER_CATEGORY = Number(process.env.MAX_PER_CATEGORY ?? 200);
@@ -48,38 +72,34 @@ export async function runSemanticSync() {
     results[category] = count;
   }
 
+  // Classify and probe crawled agents to assign categories and active signals
+  try {
+    const { runClassificationWorker } = await import('./classify.ts');
+    await runClassificationWorker();
+  } catch {}
+  try {
+    const { runProbeWorker } = await import('./probe.ts');
+    await runProbeWorker();
+  } catch {}
+
   console.log('[Worker Sync] Targeted crawl finished:', results);
   return results;
 }
 
 export async function runIncrementalSync(maxPages = 20) {
-  const effectiveMax = Math.min(maxPages, Math.ceil(MAX_TOTAL_LATEST / 50));
+  const PAGE_SIZE = 100;
+  const effectiveMax = Math.min(maxPages, Math.ceil(MAX_TOTAL_LATEST / PAGE_SIZE));
   console.log(`[Worker Sync] Running incremental sync for ${effectiveMax} pages (latest ${MAX_TOTAL_LATEST})...`);
   let totalAdded = 0;
 
   for (let page = 0; page < effectiveMax; page++) {
-    const offset = page * 50;
-    const batch = await fetchRecentAgents(56, 50, offset);
+    const offset = page * PAGE_SIZE;
+    const batch = await fetchRecentAgents(56, PAGE_SIZE, offset);
     if (batch.length === 0) break;
 
     for (const raw of batch) {
-      // Use filtered mapping where possible; lean endpoint lacks tags so apply classify fallback
-      // For 1000-latest we upsert via mapRawToAgent when tags are present, else lean merge
-      if ((raw as any).tags !== undefined) {
-        await store.upsertAgent(mapRawToAgent(raw as any));
-      } else {
-        await store.upsertAgent({
-          chainId: raw.chain_id || 56,
-          agentId: raw.agent_id,
-          tokenId: raw.token_id ?? null,
-          owner: raw.owner_address ?? null,
-          name: raw.name ?? null,
-          description: raw.description ?? null,
-          imageUrl: raw.image_url ?? null,
-          supportedProtocols: raw.supported_protocols ?? [],
-          x402Supported: raw.x402_supported ?? false,
-        });
-      }
+      // mapRawToAgent is shape-safe: lean list fields omitted — never overwrites existing DB values
+      await store.upsertAgent(mapRawToAgent(raw as any));
       totalAdded++;
     }
 
