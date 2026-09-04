@@ -34,7 +34,13 @@ export function createDb(env?: any) {
   }
   try {
     const isVercel = !!(process as any)?.env?.VERCEL || !!env?.VERCEL;
-    const c = postgres(cs, { prepare: false, max: isVercel ? 1 : 5 });
+    const c = postgres(cs, {
+      prepare: false,
+      max: isVercel ? 1 : 10,
+      idle_timeout: 20, // Close idle connections after 20 seconds
+      connect_timeout: 10, // Timeout connection establishment after 10 seconds
+      max_lifetime: 60 * 10, // Recycle connections after 10 minutes to prevent socket leaks
+    });
     const d = drizzle(c, { schema });
     console.log('[Supabase] Initialized via', env?.HYPERDRIVE ? 'Hyperdrive' : 'postgres.js Transaction Pooler');
     return { client: c, db: d };
@@ -92,7 +98,7 @@ export class SqlStore implements Store {
       }
     }
     if (!includeUncategorized) {
-      // Mặc định ẩn Other/uncategorized — chỉ hiện khi includeUncategorized=true (toggle search ngoài Image 1)
+      // Default: exclude uncategorized agents unless includeUncategorized is explicitly true
       if (category !== 'uncategorized') {
         conditions.push(not(arrayContains(schema.agents.labels, ['uncategorized'])));
       }
@@ -247,7 +253,7 @@ export class MemoryStore implements Store {
         if (!a.labels?.some((l) => aliasCat.includes(l))) return false;
       }
       if (!includeUncategorized && a.labels?.includes('uncategorized')) return false;
-      // Khi includeUncategorized=true và category==='all' thì hiện cả uncategorized (dùng cho search ngoài)
+      // When includeUncategorized is true and category === 'all', keep uncategorized agents as well
       if (includeUncategorized && category === 'uncategorized' && !a.labels?.includes('uncategorized')) return false;
       return true;
     });
