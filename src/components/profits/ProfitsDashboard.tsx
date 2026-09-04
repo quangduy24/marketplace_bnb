@@ -129,7 +129,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
               TOTAL SPENT
             </span>
             <div className="font-display font-black text-lg sm:text-xl text-[#121212] mt-0.5">
-              ${totalSpent.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
+              ${totalSpent.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">USD</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
               Escrow deposits & gas fees
@@ -141,7 +141,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
               VALUE PROTECTED & EARNED
             </span>
             <div className="font-display font-black text-lg sm:text-xl text-[#00F59B] mt-0.5">
-              +${totalEarnedProtected.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
+              +${totalEarnedProtected.toFixed(2)} <span className="font-mono-tech text-xs text-[#6A6A6A]">USD</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
               Losses avoided & yield earned
@@ -158,7 +158,7 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
               }`}
             >
               {netProfit >= 0 ? `+$${netProfit.toFixed(2)}` : `-$${Math.abs(netProfit).toFixed(2)}`}{' '}
-              <span className="font-mono-tech text-xs text-[#6A6A6A]">$U</span>
+              <span className="font-mono-tech text-xs text-[#6A6A6A]">USD</span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#8A8A8A] block mt-0.5">
               Net result for your wallet
@@ -251,14 +251,14 @@ export const ProfitsDashboard: React.FC<ProfitsDashboardProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-[#6A6A6A]">Value protected / earned:</span>
                   <span className="font-black text-[#00F59B]">
-                    +${dm.valueProtectedEarned.toFixed(2)} $U
+                    +${dm.valueProtectedEarned.toFixed(2)} USD
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-[#6A6A6A]">Deposited:</span>
                   <span className="font-bold text-[#121212]">
-                    ${spentOnThis.toFixed(2)} $U
+                    ${spentOnThis.toFixed(2)} USD
                   </span>
                 </div>
 

@@ -55,15 +55,21 @@ const _init = createDb();
 export let client: any = _init.client;
 export let db: any = _init.db;
 
+export type AddHireInput = Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt' | 'paymentToken' | 'paymentAmount'> & {
+  id?: string;
+  paymentToken?: string;
+  paymentAmount?: string;
+};
+
 export interface Store {
-  getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean, includeUncategorized?: boolean): Promise<schema.Agent[]>;
+  getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean, includeUncategorized?: boolean, chainId?: number): Promise<schema.Agent[]>;
   getAllAgents(): Promise<schema.Agent[]>;
   getAgentById(id: string): Promise<schema.Agent | undefined>;
   countAgents(): Promise<number>;
   upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }): Promise<void>;
   getHires(buyer?: string): Promise<schema.Hire[]>;
   getHireById(id: string): Promise<schema.Hire | undefined>;
-  addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire>;
+  addHire(hire: AddHireInput): Promise<schema.Hire>;
   updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null>;
 }
 
@@ -78,8 +84,11 @@ export class SqlStore implements Store {
     this.db = db;
   }
 
-  async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false): Promise<schema.Agent[]> {
+  async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false, chainId = 56): Promise<schema.Agent[]> {
     const conditions: any[] = [];
+    if (chainId) {
+      conditions.push(eq(schema.agents.chainId, chainId));
+    }
     if (filterActive) {
       conditions.push(eq(schema.agents.active, true));
     }
@@ -163,11 +172,37 @@ export class SqlStore implements Store {
     return rows[0];
   }
 
-  async addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire> {
-    const values: any = { ...hire };
+  async addHire(hire: AddHireInput): Promise<schema.Hire> {
+    const values: any = {
+      ...hire,
+      paymentToken: hire.paymentToken || 'U',
+      paymentAmount: hire.paymentAmount || hire.budgetU,
+    };
     if (hire.id) values.id = hire.id;
-    const rows = await this.db.insert(schema.hires).values(values).returning();
-    return rows[0];
+    try {
+      const rows = await this.db.insert(schema.hires).values(values).returning();
+      return rows[0];
+    } catch (err: any) {
+      if (err?.cause?.code === '42703' || String(err?.message || '').includes('payment_token')) {
+        try {
+          if (client) {
+            await client`ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_token text DEFAULT 'U'`;
+            await client`ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_amount numeric`;
+            const retryRows = await this.db.insert(schema.hires).values(values).returning();
+            return retryRows[0];
+          }
+        } catch {}
+        delete values.paymentToken;
+        delete values.paymentAmount;
+        const fallbackRows = await this.db.insert(schema.hires).values(values).returning();
+        return {
+          ...fallbackRows[0],
+          paymentToken: hire.paymentToken || 'U',
+          paymentAmount: hire.paymentAmount || hire.budgetU,
+        };
+      }
+      throw err;
+    }
   }
 
   async updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null> {
@@ -244,8 +279,9 @@ export class MemoryStore implements Store {
     }));
   }
 
-  public async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false): Promise<schema.Agent[]> {
+  public async getAgents(filterActive = true, category?: string, verifiedOnly = false, includeUncategorized = false, chainId = 56): Promise<schema.Agent[]> {
     return this.agents.filter((a) => {
+      if (chainId && a.chainId !== chainId) return false;
       if (filterActive && !a.active) return false;
       if (verifiedOnly && (!a.reachable || !a.hireable)) return false;
       if (category && category !== 'all') {
@@ -315,9 +351,11 @@ export class MemoryStore implements Store {
     return this.hires.find((h) => h.id === id);
   }
 
-  public async addHire(hire: Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<schema.Hire> {
+  public async addHire(hire: AddHireInput): Promise<schema.Hire> {
     const id = hire.id || `hire-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const newHire: schema.Hire = {
+      paymentToken: hire.paymentToken || 'U',
+      paymentAmount: hire.paymentAmount || hire.budgetU,
       ...hire,
       id,
       createdAt: new Date(),

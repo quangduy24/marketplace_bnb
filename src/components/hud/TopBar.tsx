@@ -18,6 +18,8 @@ interface TopBarProps {
   onNavigate: (view: AppView) => void;
   network: 'bscTestnet' | 'bscMainnet';
   onToggleNetwork: () => void;
+  onClaimFaucet?: () => void;
+  isClaimingFaucet?: boolean;
 }
 
 const LOCATION_NAMES: Record<AppView, { title: string; tag: string }> = {
@@ -45,6 +47,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onNavigate,
   network,
   onToggleNetwork,
+  onClaimFaucet,
+  isClaimingFaucet,
 }) => {
   const shortAddress = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
@@ -144,6 +148,19 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </button>
 
+        {/* Testnet Faucet Button */}
+        {network === 'bscTestnet' && onClaimFaucet && (
+          <button
+            onClick={onClaimFaucet}
+            disabled={isClaimingFaucet}
+            title="Claim 10 $U from BSC Testnet Faucet (every 30 mins)"
+            className="neo-btn bg-[#FFE500] hover:bg-[#FFE500]/80 text-[#121212] px-2.5 py-1 text-[11px] font-mono-tech font-bold flex items-center space-x-1 cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+          >
+            <span>🚰</span>
+            <span>{isClaimingFaucet ? 'Claiming...' : '+10 $U'}</span>
+          </button>
+        )}
+
         {/* Balance Spec Ticker */}
         <div className="hidden sm:flex items-center space-x-2 bg-[#F4F0EA] border-2 border-[#121212] px-2.5 py-1 font-mono-tech text-xs neo-shadow-sm">
           <div className="flex items-center space-x-1 font-bold">
@@ -152,7 +169,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
           <span className="text-[#A0A0A0]">/</span>
           <div className="flex items-center space-x-1 font-bold">
-            <span className="text-[#FF7828]">BNB</span>
+            <span className="text-[#FF7828]">{network === 'bscTestnet' ? 'tBNB' : 'BNB'}</span>
             <span>{walletBalanceBnb.toFixed(2)}</span>
           </div>
         </div>

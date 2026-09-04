@@ -44,6 +44,8 @@ export const hires = pgTable('hires', {
   txs: text('txs').array(),
   state: text('state').notNull(), // 'funded' | 'running' | 'submitted' | 'paid' | 'rejected' | 'expired'
   budgetU: numeric('budget_u'),
+  paymentToken: text('payment_token').default('U'),
+  paymentAmount: numeric('payment_amount'),
   artifactUri: text('artifact_uri'),
   lastAction: text('last_action'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

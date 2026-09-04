@@ -16,8 +16,8 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
   onSelectHiredSlot,
   onNavigate,
 }) => {
-  // Unlimited slots: Show all active hired agents plus inviting empty slots (exclude cancelled and rejected)
-  const activeHires = hires.filter((h) => h.state !== 'cancelled' && h.state !== 'rejected');
+  // Unlimited slots: Show active working agents (pending, funded, running, submitted); settled jobs are archived in History Book.
+  const activeHires = hires.filter((h) => ['pending', 'funded', 'running', 'submitted'].includes(h.state));
   const minSlots = Math.max(4, activeHires.length + 1);
   const slots: (HireData | null)[] = [
     ...activeHires,
@@ -77,6 +77,8 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
               ? 'bg-[#FFE500]'
               : hire.state === 'paid'
               ? 'bg-[#38BDF8]'
+              : hire.state === 'pending'
+              ? 'bg-[#F59E0B]'
               : 'bg-[#FF4365]';
 
           return (

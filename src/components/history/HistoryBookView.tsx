@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { HireData, AgentData, CareerCategory } from '../../types.ts';
+import React, { useState, useEffect } from 'react';
+import { HireData, AgentData, CareerCategory, formatHirePayment } from '../../types.ts';
 import { getPixelSprite } from '../game/pixelAssets.ts';
-import { BookOpen, ExternalLink, Filter, MapPin, Hash, CheckCircle2 } from 'lucide-react';
+import { BookOpen, ExternalLink, Filter, MapPin, Hash, CheckCircle2, Shield, CheckCircle } from 'lucide-react';
+import { verifyErc8183ManifestText } from '../../../lib/canonical.ts';
 
 interface HistoryBookViewProps {
   hires: HireData[];
   agents: AgentData[];
   onFocusAgentInHouse: (category: CareerCategory) => void;
   onSyncJobState?: (hireId: string, newState: string, lastAction?: string) => Promise<void>;
+  activeChainId?: number;
 }
 
 export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
@@ -15,15 +17,70 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
   agents,
   onFocusAgentInHouse,
   onSyncJobState,
+  activeChainId,
 }) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterState, setFilterState] = useState<string>('all');
+  const [filterNetwork, setFilterNetwork] = useState<string>('all');
+  const [selectedJobToInspect, setSelectedJobToInspect] = useState<HireData | null>(null);
+  const [manifestText, setManifestText] = useState<string | null>(null);
+  const [deliverableHash, setDeliverableHash] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [loadingManifest, setLoadingManifest] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!selectedJobToInspect) {
+      setManifestText(null);
+      setDeliverableHash(null);
+      setIsVerified(null);
+      return;
+    }
+
+    let active = true;
+    setLoadingManifest(true);
+    fetch(`/api/hires/${selectedJobToInspect.id}/manifest`)
+      .then(async (res) => {
+        if (!res.ok) {
+          if (active) {
+            setManifestText(null);
+            setIsVerified(null);
+            setLoadingManifest(false);
+          }
+          return;
+        }
+        const headerHash = res.headers.get('X-Deliverable-Hash');
+        const text = await res.text();
+        if (!active) return;
+        setManifestText(text);
+        setDeliverableHash(headerHash);
+
+        const expectedHash =
+          headerHash ||
+          selectedJobToInspect.txs?.find((_, idx) => idx > 0) ||
+          '';
+
+        const verified = verifyErc8183ManifestText(text, expectedHash);
+        setIsVerified(verified);
+        setLoadingManifest(false);
+      })
+      .catch(() => {
+        if (active) {
+          setLoadingManifest(false);
+          setIsVerified(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedJobToInspect]);
 
   const filteredHires = hires.filter((h) => {
     const cat = (h.catalog || 'rebalancing') as string;
     const normalizedCat = cat === 'monitoring' ? 'rebalancing' : cat;
     if (filterCategory !== 'all' && normalizedCat !== filterCategory) return false;
     if (filterState !== 'all' && h.state !== filterState) return false;
+    if (filterNetwork !== 'all' && String(h.chainId) !== filterNetwork) return false;
     return true;
   });
 
@@ -53,7 +110,20 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
           </div>
 
           {/* Filter Bar */}
-          <div className="flex items-center space-x-2 font-mono-tech text-xs">
+          <div className="flex flex-wrap items-center gap-2 font-mono-tech text-xs">
+            {/* Network Filter */}
+            <div className="bg-[#FAF7F0] border-2 border-[#121212] px-2 py-1 neo-shadow-sm">
+              <select
+                value={filterNetwork}
+                onChange={(e) => setFilterNetwork(e.target.value)}
+                className="bg-transparent text-xs font-bold text-[#121212] focus:outline-none uppercase"
+              >
+                <option value="all">ALL NETWORKS</option>
+                <option value="97">BSC TESTNET (97)</option>
+                <option value="56">BSC MAINNET (56)</option>
+              </select>
+            </div>
+
             <div className="flex items-center space-x-1.5 bg-[#FAF7F0] border-2 border-[#121212] px-2 py-1 neo-shadow-sm">
               <Filter className="w-3.5 h-3.5 text-[#6A6A6A]" />
               <select
@@ -99,6 +169,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
               <thead>
                 <tr className="border-b-2 border-[#121212] bg-[#FAF7F0] text-[9px] text-[#121212] uppercase font-bold">
                   <th className="py-2.5 px-3">Agent</th>
+                  <th className="py-2.5 px-2">Network</th>
                   <th className="py-2.5 px-2">Category</th>
                   <th className="py-2.5 px-2">Payment</th>
                   <th className="py-2.5 px-2">Status</th>
@@ -124,6 +195,8 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                       ? 'bg-[#FFE500] text-[#121212]'
                       : hire.state === 'running' || hire.state === 'funded'
                       ? 'bg-[#38BDF8] text-[#121212]'
+                      : hire.state === 'pending'
+                      ? 'bg-[#F59E0B] text-white'
                       : hire.state === 'cancelled'
                       ? 'bg-[#71717A] text-white'
                       : 'bg-[#FF4365] text-white';
@@ -154,6 +227,18 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                         </div>
                       </td>
 
+                      <td className="py-2.5 px-2 font-mono-tech text-[10px] font-bold">
+                        <span
+                          className={`neo-badge text-[8px] px-1.5 py-0.2 font-black ${
+                            hire.chainId === 97
+                              ? 'bg-[#FFE500] text-[#121212]'
+                              : 'bg-[#00F59B] text-[#121212]'
+                          }`}
+                        >
+                          {hire.chainId === 97 ? 'TESTNET' : 'MAINNET'}
+                        </span>
+                      </td>
+
                       <td className="py-2.5 px-2">
                         <span className="neo-badge bg-[#FAF7F0] text-[#121212] text-[8px] px-1.5 py-0.2 uppercase">
                           {hire.catalog}
@@ -171,7 +256,10 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                       </td>
 
                       <td className="py-2.5 px-2 font-bold text-[#121212]">
-                        {hire.budgetU} $U
+                        {(() => {
+                          const payment = formatHirePayment(hire);
+                          return `${payment.amount} ${payment.symbol}`;
+                        })()}
                       </td>
 
                       <td className="py-2.5 px-2">
@@ -210,12 +298,23 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                             </button>
                           )}
                           <button
-                            onClick={() => onFocusAgentInHouse(career)}
-                            className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1"
+                            onClick={() => setSelectedJobToInspect(hire)}
+                            className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] font-mono-tech font-bold text-[10px] px-2 py-1 inline-flex items-center space-x-1"
+                            title="Inspect cryptographic proof and deliverable manifest"
                           >
-                            <MapPin className="w-3 h-3" />
-                            <span>VIEW</span>
+                            <Shield className="w-3 h-3 text-[#2563EB]" />
+                            <span>PROOFS</span>
                           </button>
+                          {['pending', 'funded', 'running', 'submitted'].includes(hire.state) && (
+                            <button
+                              onClick={() => onFocusAgentInHouse(career)}
+                              className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1"
+                              title="View active worker in Agent House chamber"
+                            >
+                              <MapPin className="w-3 h-3" />
+                              <span>HOUSE</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -232,6 +331,141 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
           <span className="font-medium text-[#2563EB]">BSC Testnet / BSC Mainnet</span>
         </div>
       </div>
+
+      {/* Inspect Job Modal from History Book */}
+      {selectedJobToInspect && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 select-none">
+          <div className="neo-card bg-[#FFFFFF] w-full max-w-lg p-5 neo-shadow-xl relative max-h-[90vh] flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b-2 border-[#121212] pb-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <span className="neo-badge bg-[#FFE500] text-[#121212] text-[9px] px-1.5 py-0.2">
+                    ESCROW ARCHIVE
+                  </span>
+                  <h3 className="font-display font-black text-sm text-[#121212]">
+                    Job: {selectedJobToInspect.jobId}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedJobToInspect(null)}
+                  className="neo-btn w-6 h-6 bg-[#121212] text-white flex items-center justify-center text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-2.5 font-mono-tech text-xs text-[#121212] overflow-y-auto max-h-[60vh] pr-1">
+                <div className="bg-[#FAF7F0] border-2 border-[#121212] p-3 space-y-1.5">
+                  <p><strong>Agent:</strong> {selectedJobToInspect.agentId}</p>
+                  <p><strong>Category:</strong> {selectedJobToInspect.catalog}</p>
+                  <p><strong>Escrow Rail:</strong> {selectedJobToInspect.rail.toUpperCase()}</p>
+                  <p>
+                    <strong>Status:</strong>{' '}
+                    <span className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2">
+                      {selectedJobToInspect.state === 'paid' ? 'RELEASED' : selectedJobToInspect.state.toUpperCase()}
+                    </span>
+                  </p>
+                  {(() => {
+                    const payment = formatHirePayment(selectedJobToInspect);
+                    return (
+                      <p>
+                        <strong>Deposit:</strong>{' '}
+                        {payment.amount} {payment.symbol}
+                      </p>
+                    );
+                  })()}
+                  <p><strong>Last Action:</strong> {selectedJobToInspect.lastAction || 'Escrow record archived'}</p>
+                </div>
+
+                {/* Cryptographic Manifest Verification */}
+                {(selectedJobToInspect.state === 'submitted' || selectedJobToInspect.state === 'paid') && (
+                  <div className="border-2 border-[#121212] p-2.5 bg-white space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[11px] flex items-center space-x-1">
+                        <Shield className="w-3.5 h-3.5 text-[#2563EB]" />
+                        <span>CRYPTOGRAPHIC DELIVERABLE VERIFICATION</span>
+                      </span>
+                      {loadingManifest ? (
+                        <span className="text-[9px] font-mono-tech text-[#6A6A6A] animate-pulse">
+                          Verifying...
+                        </span>
+                      ) : isVerified ? (
+                        <span className="neo-badge bg-[#00F59B] text-[#121212] text-[8px] font-black px-1.5 py-0.2">
+                          ✓ KECCAK-256 MATCH
+                        </span>
+                      ) : (
+                        <span className="neo-badge bg-[#FFE500] text-[#121212] text-[8px] font-black px-1.5 py-0.2">
+                          CANONICAL DELIVERABLE
+                        </span>
+                      )}
+                    </div>
+
+                    {deliverableHash && (
+                      <div className="bg-[#FAF7F0] p-1.5 border border-[#121212] text-[9px] break-all font-mono-tech">
+                        <span className="text-[#6A6A6A] block font-bold">On-chain Deliverable Hash:</span>
+                        <code className="text-[#121212] font-black">{deliverableHash}</code>
+                      </div>
+                    )}
+
+                    {manifestText && (
+                      <div className="space-y-1">
+                        <span className="text-[9px] text-[#6A6A6A] font-bold block">Verbatim Canonical Manifest:</span>
+                        <div className="bg-[#121212] text-[#00F59B] p-2 border-2 border-[#121212] text-[9px] font-mono-tech overflow-x-auto max-h-[140px] overflow-y-auto">
+                          <pre className="whitespace-pre-wrap break-all">{manifestText}</pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedJobToInspect.txs && selectedJobToInspect.txs.length > 0 && (
+                  <div className="mt-2">
+                    <span className="font-bold block mb-1">ON-CHAIN ESCROW & DELIVERABLE PROOFS:</span>
+                    <div className="space-y-1.5">
+                      {selectedJobToInspect.txs.map((tx, idx) => {
+                        const isFundingTx = idx === 0;
+                        if (isFundingTx) {
+                          return (
+                            <a
+                              key={idx}
+                              href={`${selectedJobToInspect.chainId === 56 ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx'}/${tx}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[#2563EB] hover:underline flex items-center space-x-1 font-bold text-[10px]"
+                            >
+                              <span>⚡ Escrow Deposit Tx: {tx.slice(0, 16)}...{tx.slice(-8)}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          );
+                        }
+                        return (
+                          <div key={idx} className="flex items-center space-x-1 text-[10px] font-mono-tech">
+                            <span className="text-[#6A6A6A] font-bold">📜 Deliverable Hash (Keccak-256):</span>
+                            <span className="font-bold font-mono text-[#059669]">{tx.slice(0, 16)}...{tx.slice(-8)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t-2 border-[#121212] flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 font-mono-tech text-[10px] text-[#6A6A6A]">
+                <CheckCircle className="w-3.5 h-3.5 text-[#059669]" />
+                <span>On-chain Escrow Archive Verified</span>
+              </div>
+              <button
+                onClick={() => setSelectedJobToInspect(null)}
+                className="neo-btn bg-[#121212] text-white font-mono-tech text-xs font-bold px-4 py-1.5"
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

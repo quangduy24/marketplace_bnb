@@ -45,11 +45,16 @@ CREATE TABLE IF NOT EXISTS hires (
   txs text[],
   state text NOT NULL,
   budget_u numeric,
+  payment_token text DEFAULT 'U',
+  payment_amount numeric,
   artifact_uri text,
   last_action text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_token text DEFAULT 'U';
+ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_amount numeric;
 `;
 
 export async function ensureSchema(db: any): Promise<void> {

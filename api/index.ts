@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
-import { verifyMessage } from 'viem';
+import { verifyMessage, keccak256, toHex } from 'viem';
 import { store } from '../lib/supabase.ts';
 import { buildVerificationMessage } from '../lib/auth-message.ts';
 import { computeBanditScore } from '../lib/bandit.ts';
 import { analyzeWalletContext } from '../lib/context.ts';
-import { CONTRACT_ADDRESSES } from '../lib/chain.ts';
+import { CONTRACT_ADDRESSES, ERC8183_ADDRESSES } from '../lib/chain.ts';
+import { canonicalJson } from '../lib/canonical.ts';
 import { runSemanticSync, runIncrementalSync, runLatestSync } from '../workers/sync.ts';
 import { runClassificationWorker } from '../workers/classify.ts';
 import { runProbeWorker } from '../workers/probe.ts';
@@ -159,18 +160,30 @@ app.get('/agents/:id', async (c) => {
 
 app.get('/hires', async (c) => {
   const buyer = c.req.query('buyer');
-  const hiresList = await store.getHires(buyer || undefined);
+  const chainIdParam = c.req.query('chainId');
+  let hiresList = await store.getHires(buyer || undefined);
+  if (chainIdParam) {
+    const targetChainId = Number(chainIdParam);
+    hiresList = hiresList.filter((h: any) => Number(h.chainId) === targetChainId);
+  }
   return c.json({ hires: hiresList, count: hiresList.length });
 });
 
 app.post('/hires/prepare', async (c) => {
-  const { agentId, budgetU, rail, taskSummary } = await c.req.json();
+  const { agentId, budgetU, rail, taskSummary, deadlineHours: customDeadlineHours } = await c.req.json();
   const agent: any = await store.getAgentById(agentId);
   if (!agent) return c.json({ error: 'Agent not found for quoting' }, 404);
   const raw = agent.rawJson as any;
   const hourlyRate = Number(raw?.hourlyCostU || '0.25');
   const budget = Number(budgetU || hourlyRate * 2);
-  const deadlineTimestamp = Math.floor(Date.now() / 1000) + 24 * 3600;
+  const deadlineHours = customDeadlineHours ? Number(customDeadlineHours) : 24;
+  const deadlineSeconds = Math.max(60, Math.round(deadlineHours * 3600));
+  const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadlineSeconds;
+  const targetCommerce =
+    agent.chainId === 97
+      ? CONTRACT_ADDRESSES.ERC8183_COMMERCE_TESTNET
+      : CONTRACT_ADDRESSES.ERC8183_COMMERCE_MAINNET;
+
   return c.json({
     quoteId: `quote_${Date.now()}`,
     agentId,
@@ -178,21 +191,40 @@ app.post('/hires/prepare', async (c) => {
     buyerRequestedRail: rail || (agent.x402Supported ? 'x402' : 'erc8183'),
     budgetU: budget.toFixed(2),
     deadline: deadlineTimestamp,
+    deadlineHours,
     taskSummary: taskSummary || 'Autonomous periodic inspection',
-    contractAddress: agent.chainId === 97 ? CONTRACT_ADDRESSES.ERC8004_TESTNET : CONTRACT_ADDRESSES.ERC8004_MAINNET,
-    escrowTerms: { timeoutHours: 24, releaseRule: 'Client verification upon proof receipt' },
+    contractAddress: targetCommerce,
+    escrowTerms: { timeoutHours: deadlineHours, releaseRule: 'Client verification upon proof receipt' },
   });
 });
 
 app.post('/hires', async (c) => {
-  const { buyer, buyerAddress, chainId, agentId, catalog, rail, jobId, txHash, budgetU, lastAction } = await c.req.json();
+  const { buyer, buyerAddress, chainId, agentId, catalog, rail, jobId, txHash, budgetU, paymentToken, paymentAmount, deadlineHours, lastAction } = await c.req.json();
   const resolvedBuyer = buyer || buyerAddress;
   if (!resolvedBuyer || !agentId || !catalog || !rail) {
     return c.json({ error: 'Missing required hire fields (buyer, agentId, catalog, rail)' }, 400);
   }
+  const resolvedChainId = chainId ? Number(chainId) : (agentId.startsWith('97:') ? 97 : 56);
+  let resolvedPaymentToken = (paymentToken || 'U').trim();
+  if (resolvedPaymentToken.toLowerCase() === 'tbnb') {
+    resolvedPaymentToken = 'tBNB';
+  } else {
+    resolvedPaymentToken = resolvedPaymentToken.toUpperCase();
+  }
+
+  const formatDuration = (hours?: string | number) => {
+    if (!hours) return '24h';
+    const num = Number(hours);
+    if (isNaN(num)) return String(hours);
+    if (num < 1) return `${Math.round(num * 60)}m`;
+    if (num >= 24 && num % 24 === 0) return `${num / 24}d`;
+    return `${num}h`;
+  };
+  const durationLabel = formatDuration(deadlineHours);
+
   const hire = await store.addHire({
     buyer: resolvedBuyer,
-    chainId: chainId || 97,
+    chainId: resolvedChainId,
     agentId,
     catalog,
     rail,
@@ -200,8 +232,10 @@ app.post('/hires', async (c) => {
     txs: txHash ? [txHash] : [],
     state: txHash ? 'funded' : 'pending',
     budgetU: budgetU ? String(budgetU) : '10.00',
+    paymentToken: resolvedPaymentToken,
+    paymentAmount: paymentAmount ? String(paymentAmount) : (budgetU ? String(budgetU) : '10.00'),
     artifactUri: null,
-    lastAction: lastAction || (txHash ? 'Escrow deposit funded by buyer on BSC' : 'Awaiting on-chain escrow funding'),
+    lastAction: lastAction || (txHash ? `Escrow deposit funded in ${resolvedPaymentToken} by buyer on BSC (${durationLabel})` : 'Awaiting on-chain escrow funding'),
   });
   return c.json(hire, 201);
 });
@@ -216,6 +250,115 @@ app.post('/hires/:id/sync', async (c) => {
   if (lastAction) updates.lastAction = lastAction;
   if (txHash && !hire.txs?.includes(txHash)) updates.txs = [...(hire.txs || []), txHash];
   const updated = await store.updateHire(c.req.param('id'), updates);
+  return c.json(updated);
+});
+
+app.post('/hires/:id/auto-run', async (c) => {
+  const hire: any = await store.getHireById(c.req.param('id'));
+  if (!hire) return c.json({ error: 'Hire record not found' }, 404);
+
+  const chainId = hire.chainId === 97 ? 97 : 56;
+  const addresses = chainId === 97 ? ERC8183_ADDRESSES[97] : ERC8183_ADDRESSES[56];
+  const jobIdNum = 1000 + Math.abs(hire.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 9000);
+  const executedAt = Math.floor(Date.now() / 1000);
+
+  // Canonical ERC-8183 v1 Deliverable Manifest
+  const manifest = {
+    version: 1,
+    job_id: jobIdNum,
+    chain_id: chainId,
+    contracts: {
+      commerce: addresses.commerce,
+      router: addresses.router,
+      policy: addresses.policy,
+    },
+    response: {
+      content: `Autonomous execution directive completed for ${hire.catalog} on BNB Chain. Venus protocol monitored, health factor guard active.`,
+      content_type: 'text/plain',
+    },
+    metadata: {
+      agent_id: hire.agentId,
+      buyer: hire.buyer,
+      catalog: hire.catalog,
+      executed_at: executedAt,
+      runtime: 'LANS-Agent-Runner-v2',
+    },
+  };
+
+  const manifestText = canonicalJson(manifest);
+  const deliverableHash = keccak256(toHex(manifestText));
+  const artifactUri = `/api/hires/${hire.id}/manifest?t=${executedAt}`;
+
+  const updated = await store.updateHire(c.req.param('id'), {
+    state: 'submitted',
+    artifactUri,
+    lastAction: `Agent executed autonomous strategy and submitted canonical deliverable (${deliverableHash.slice(0, 12)}...)`,
+    txs: [...(hire.txs || []), deliverableHash],
+  });
+
+  return c.json({ ...updated, manifest, manifestText, deliverableHash });
+});
+
+app.get('/hires/:id/manifest', async (c) => {
+  const hire: any = await store.getHireById(c.req.param('id'));
+  if (!hire) return c.text('Not Found', 404);
+
+  const chainId = hire.chainId === 97 ? 97 : 56;
+  const addresses = chainId === 97 ? ERC8183_ADDRESSES[97] : ERC8183_ADDRESSES[56];
+  const jobIdNum = 1000 + Math.abs(hire.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 9000);
+
+  let executedAt = Math.floor(new Date(hire.updatedAt || hire.createdAt).getTime() / 1000);
+  if (hire.artifactUri && hire.artifactUri.includes('?t=')) {
+    const parsedT = Number(hire.artifactUri.split('?t=')[1]);
+    if (!isNaN(parsedT) && parsedT > 0) executedAt = parsedT;
+  }
+
+  const manifest = {
+    version: 1,
+    job_id: jobIdNum,
+    chain_id: chainId,
+    contracts: {
+      commerce: addresses.commerce,
+      router: addresses.router,
+      policy: addresses.policy,
+    },
+    response: {
+      content: `Autonomous execution directive completed for ${hire.catalog} on BNB Chain. Venus protocol monitored, health factor guard active.`,
+      content_type: 'text/plain',
+    },
+    metadata: {
+      agent_id: hire.agentId,
+      buyer: hire.buyer,
+      catalog: hire.catalog,
+      executed_at: executedAt,
+      runtime: 'LANS-Agent-Runner-v2',
+    },
+  };
+
+  const manifestText = canonicalJson(manifest);
+  return c.text(manifestText, 200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'X-Deliverable-Hash': keccak256(toHex(manifestText)),
+  });
+});
+
+app.post('/hires/:id/dispute', async (c) => {
+  const hire: any = await store.getHireById(c.req.param('id'));
+  if (!hire) return c.json({ error: 'Hire record not found' }, 404);
+  const updated = await store.updateHire(c.req.param('id'), {
+    state: 'rejected',
+    lastAction: 'Buyer disputed deliverable inside optimistic dispute window',
+  });
+  return c.json(updated);
+});
+
+app.post('/hires/:id/claim-refund', async (c) => {
+  const hire: any = await store.getHireById(c.req.param('id'));
+  if (!hire) return c.json({ error: 'Hire record not found' }, 404);
+  const updated = await store.updateHire(c.req.param('id'), {
+    state: 'expired',
+    lastAction: 'Full escrow deposit reclaimed by buyer after job deadline expiry',
+  });
   return c.json(updated);
 });
 

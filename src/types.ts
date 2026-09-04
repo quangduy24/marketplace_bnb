@@ -55,6 +55,8 @@ export interface HireData {
   txs?: string[] | null;
   state: JobState;
   budgetU?: string | null;
+  paymentToken?: 'BNB' | 'USDT' | 'USDC' | 'U' | string | null;
+  paymentAmount?: string | null;
   artifactUri?: string | null;
   lastAction?: string | null;
   createdAt: string | Date;
@@ -84,3 +86,29 @@ export interface WalletContextState {
 }
 
 export type AppView = 'story' | 'town' | 'marketplace' | 'agents' | 'history' | 'profits' | 'demo';
+
+/**
+ * Format deposit amount and currency symbol accurately:
+ * - Native BNB / tBNB only when explicitly chosen
+ * - Standard ERC-8183 escrow defaults to $U
+ */
+export function formatHirePayment(hire: {
+  paymentAmount?: string | null;
+  budgetU?: string | null;
+  paymentToken?: string | null;
+  chainId?: number;
+  rail?: string;
+}): { amount: string; symbol: string } {
+  const rawToken = (hire.paymentToken || '').toUpperCase();
+  const isNative = rawToken === 'BNB' || rawToken === 'TBNB';
+
+  if (isNative) {
+    const symbol = hire.chainId === 97 ? 'tBNB' : 'BNB';
+    const amount = hire.paymentAmount || '0.00';
+    return { amount, symbol };
+  }
+
+  const symbol = rawToken === 'USDT' ? 'USDT' : rawToken === 'USDC' ? 'USDC' : '$U';
+  const amount = hire.paymentAmount || hire.budgetU || '0.00';
+  return { amount, symbol };
+}

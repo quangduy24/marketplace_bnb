@@ -22,7 +22,10 @@ import {
   switchBscChain,
   signVerificationMessage,
   fetchNativeBalance,
-  fetchUBalance,
+  fetchAllTokenBalances,
+  claimTestnetUFaucet,
+  watchWallet,
+  getInjectedProvider,
 } from './lib/wallet.ts';
 
 const VIEW_TO_PATH: Record<AppView, string> = {
@@ -118,10 +121,11 @@ export default function App() {
     });
   }, [walletPickerOpen]);
 
-  // Fetch agents from API — toàn bộ pool (769) làm directory & search mặc định
+  // Fetch agents from API - filtered strictly by active network chainId (default 56 Mainnet)
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agents?wallet=${walletAddress}&activeOnly=false&includeUncategorized=true`);
+      const activeChainId = network === 'bscTestnet' ? 97 : 56;
+      const res = await fetch(`/api/agents?chainId=${activeChainId}&wallet=${walletAddress}&activeOnly=false&includeUncategorized=true`);
       if (res.ok) {
         const data = await res.json();
         if (data.agents) {
@@ -131,12 +135,13 @@ export default function App() {
     } catch (err) {
       console.warn('Failed to fetch agents, will retry or fallback', err);
     }
-  }, [walletAddress]);
+  }, [walletAddress, network]);
 
-  // Fetch active labeled agents (143) riêng cho 4 stalls Image 1
+  // Fetch active labeled agents specifically for featured category stalls
   const fetchAgentsActive = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agents?wallet=${walletAddress}&activeOnly=true`);
+      const activeChainId = network === 'bscTestnet' ? 97 : 56;
+      const res = await fetch(`/api/agents?chainId=${activeChainId}&wallet=${walletAddress}&activeOnly=true`);
       if (res.ok) {
         const data = await res.json();
         if (data.agents && data.agents.length > 0) {
@@ -146,7 +151,7 @@ export default function App() {
     } catch (err) {
       console.warn('Failed to fetch active agents', err);
     }
-  }, [walletAddress]);
+  }, [walletAddress, network]);
 
   // Fetch hires from API
   const fetchHires = useCallback(async () => {
@@ -188,17 +193,78 @@ export default function App() {
       setWalletBalanceBnb(0);
       return { bnb: 0, u: 0 };
     }
-    const bnb = await fetchNativeBalance(address, chain);
-    setWalletBalanceBnb(bnb);
-    let u = 0;
-    if (chain === 'bscMainnet') {
-      u = await fetchUBalance(address);
-      setWalletBalanceU(u);
-    } else {
-      setWalletBalanceU(0);
-    }
-    return { bnb, u };
+    const b = await fetchAllTokenBalances(address, chain);
+    setWalletBalanceBnb(b.BNB);
+    setWalletBalanceU(b.U);
+    return { bnb: b.BNB, u: b.U };
   }, []);
+
+  const [isClaimingFaucet, setIsClaimingFaucet] = useState(false);
+
+  const handleClaimFaucet = async () => {
+    if (!walletAddress) {
+      notify('Please connect your wallet first to claim testnet $U', 'err');
+      return;
+    }
+    const provider = activeProviderRef.current || getInjectedProvider();
+    if (!provider) {
+      notify('No Web3 wallet provider detected', 'err');
+      return;
+    }
+    setIsClaimingFaucet(true);
+    try {
+      const { txHash } = await claimTestnetUFaucet(provider, walletAddress);
+      notify(`Claimed 10 $U successfully! Tx: ${txHash.slice(0, 10)}...`, 'ok');
+      setTimeout(() => refreshBalances(walletAddress, network), 2500);
+    } catch (err: any) {
+      notify(err?.message || 'Failed to claim from testnet faucet', 'err');
+    } finally {
+      setIsClaimingFaucet(false);
+    }
+  };
+
+  // Eagerly detect already connected wallet and listen to network/account switches
+  useEffect(() => {
+    const provider = getInjectedProvider();
+    if (!provider) return;
+
+    provider.request({ method: 'eth_accounts' }).then(async (accounts: any) => {
+      if (Array.isArray(accounts) && accounts.length > 0 && accounts[0]) {
+        const address = accounts[0];
+        setWalletAddress(address);
+        activeProviderRef.current = provider;
+
+        try {
+          const cidHex = await provider.request({ method: 'eth_chainId' });
+          const cid = Number.parseInt(String(cidHex), 16);
+          const detectedNet: BscNetwork = cid === 97 ? 'bscTestnet' : 'bscMainnet';
+          setNetwork(detectedNet);
+          refreshBalances(address, detectedNet);
+        } catch {
+          refreshBalances(address, network);
+        }
+      }
+    }).catch(() => {});
+
+    const cleanup = watchWallet(
+      provider,
+      (accounts) => {
+        if (accounts.length === 0) {
+          handleDisconnectWallet();
+        } else {
+          setWalletAddress(accounts[0]);
+          refreshBalances(accounts[0], network);
+        }
+      },
+      (chainIdHex) => {
+        const cid = Number.parseInt(String(chainIdHex), 16);
+        const nextNet: BscNetwork = cid === 97 ? 'bscTestnet' : 'bscMainnet';
+        setNetwork(nextNet);
+      }
+    );
+
+    return cleanup;
+  }, [network, refreshBalances]);
 
   useEffect(() => {
     fetchAgents();
@@ -247,6 +313,9 @@ export default function App() {
     budgetU: string;
     taskSummary: string;
     txHash?: string;
+    paymentToken?: string;
+    paymentAmount?: string;
+    deadlineHours?: string;
   }) => {
     const res = await fetch('/api/hires', {
       method: 'POST',
@@ -260,6 +329,9 @@ export default function App() {
         budgetU: payload.budgetU,
         taskSummary: payload.taskSummary,
         txHash: payload.txHash,
+        paymentToken: payload.paymentToken || 'U',
+        paymentAmount: payload.paymentAmount || payload.budgetU,
+        deadlineHours: payload.deadlineHours,
       }),
     });
 
@@ -270,6 +342,12 @@ export default function App() {
 
     const hire = await res.json();
     setHires((prev) => [hire, ...prev]);
+
+    // Refresh real wallet balances so deducted balance is reflected in HUD
+    if (walletAddress) {
+      setTimeout(() => refreshBalances(walletAddress, network), 1000);
+      setTimeout(() => refreshBalances(walletAddress, network), 3000);
+    }
 
     // Switch to Agent House to witness active chamber!
     setFocusedChamber(payload.catalog as CareerCategory);
@@ -292,9 +370,19 @@ export default function App() {
       const updated = await res.json();
       setHires((prev) => prev.map((h) => (h.id === hireId ? { ...h, ...updated } : h)));
 
-      // Job resolved — refresh real wallet context from the chain
+      // Job resolved — refresh real wallet context & balances, and notify user
       if (newState === 'paid' || newState === 'rejected' || newState === 'expired') {
         fetchContext();
+        if (walletAddress) {
+          refreshBalances(walletAddress, network);
+        }
+        if (newState === 'paid') {
+          notify('Escrow released! Chamber vacated and archived in History Book.', 'ok');
+        } else if (newState === 'expired') {
+          notify('Escrow deposit reclaimed. Chamber vacated.', 'ok');
+        } else if (newState === 'rejected') {
+          notify('Job disputed. Chamber vacated.', 'err');
+        }
       }
     } catch (err) {
       console.error('Sync job error', err);
@@ -413,7 +501,10 @@ export default function App() {
     }
   };
 
-  const activeJobsCount = hires.filter(
+  const activeChainId = network === 'bscTestnet' ? 97 : 56;
+  const currentNetworkHires = hires.filter((h) => Number(h.chainId) === activeChainId);
+
+  const activeJobsCount = currentNetworkHires.filter(
     (h) => h.state === 'funded' || h.state === 'running' || h.state === 'submitted'
   ).length;
 
@@ -435,6 +526,8 @@ export default function App() {
         onNavigate={(view) => navigate(view)}
         network={network}
         onToggleNetwork={handleToggleNetwork}
+        onClaimFaucet={handleClaimFaucet}
+        isClaimingFaucet={isClaimingFaucet}
       />
 
       {/* Main Workspace Body: Left Nav + Viewport */}
@@ -471,7 +564,7 @@ export default function App() {
 
           {currentView === 'agents' && (
             <AgentHouse
-              hires={hires}
+              hires={currentNetworkHires}
               agents={agents}
               onNavigateMarket={() => navigate('marketplace')}
               onSyncJobState={handleSyncJobState}
@@ -484,6 +577,7 @@ export default function App() {
             <HistoryBookView
               hires={hires}
               agents={agents}
+              activeChainId={activeChainId}
               onFocusAgentInHouse={(cat) => {
                 setFocusedChamber(cat);
                 navigate('agents');
@@ -494,7 +588,7 @@ export default function App() {
 
           {currentView === 'profits' && (
             <ProfitsDashboard
-              hires={hires}
+              hires={currentNetworkHires}
               onNavigateMarket={(cat) => {
                 navigate('marketplace');
               }}
@@ -510,7 +604,7 @@ export default function App() {
 
       {/* Bottom Action Bar: Unlimited Hired Squad */}
       <BottomActionBar
-        hires={hires}
+        hires={currentNetworkHires}
         agents={agents}
         onSelectHiredSlot={handleSelectHiredSlot}
         onNavigate={(view) => navigate(view)}

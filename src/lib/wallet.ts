@@ -4,8 +4,15 @@
  * MetaMask / Trust Wallet / Binance Wallet extension (window.ethereum), EIP-6963 auto-discovery.
  * No proprietary SDK required (per Binance official docs).
  */
-import { formatEther, formatUnits } from 'viem';
-import { bscMainnet, bscMainnetClient, bscTestnet, bscTestnetClient } from '../../lib/chain.ts';
+import { formatEther, formatUnits, encodeFunctionData } from 'viem';
+import {
+  bscMainnet,
+  bscMainnetClient,
+  bscTestnet,
+  bscTestnetClient,
+  CONTRACT_ADDRESSES,
+  U_FAUCET_ABI,
+} from '../../lib/chain.ts';
 import { buildVerificationMessage } from '../../lib/auth-message.ts';
 
 export type BscNetwork = 'bscMainnet' | 'bscTestnet';
@@ -15,8 +22,87 @@ export const BSC_CHAIN_IDS: Record<BscNetwork, number> = {
   bscTestnet: 97,
 };
 
-// $U payment token (BSC Mainnet)
-const U_TOKEN_ADDRESS = '0xcE24439F2D9C6a2289F741120FE202248B666666';
+export interface PaymentTokenConfig {
+  symbol: string;
+  name: string;
+  address: `0x${string}`;
+  decimals: number;
+  isGasless: boolean;
+  badge: string;
+  badgeDesc: string;
+}
+
+// Payment tokens configured per network (Strict Network Isolation)
+export const TESTNET_PAYMENT_TOKENS: Record<string, PaymentTokenConfig> = {
+  U: {
+    symbol: '$U',
+    name: 'U Token (Testnet Escrow)',
+    address: CONTRACT_ADDRESSES.U_TOKEN_TESTNET,
+    decimals: 18,
+    isGasless: false,
+    badge: '⚡ Escrow',
+    badgeDesc: 'ERC-8183 Escrow on BSC Testnet',
+  },
+  BNB: {
+    symbol: 'tBNB',
+    name: 'Native Testnet BNB',
+    address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' as `0x${string}`,
+    decimals: 18,
+    isGasless: false,
+    badge: 'Native',
+    badgeDesc: '1-click direct pay on testnet',
+  },
+};
+
+export const MAINNET_PAYMENT_TOKENS: Record<string, PaymentTokenConfig> = {
+  U: {
+    symbol: '$U',
+    name: 'U Token',
+    address: '0xcE24439F2D9C6a2289F741120FE202248B666666' as `0x${string}`,
+    decimals: 18,
+    isGasless: true,
+    badge: '⚡ Gasless',
+    badgeDesc: 'EIP-3009 0 gas fee',
+  },
+  BNB: {
+    symbol: 'BNB',
+    name: 'Native BNB',
+    address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' as `0x${string}`,
+    decimals: 18,
+    isGasless: false,
+    badge: 'Native',
+    badgeDesc: '1-click direct pay',
+  },
+  USDT: {
+    symbol: 'USDT',
+    name: 'Tether USD',
+    address: '0x55d398326f99059fF775485246999027B3197955' as `0x${string}`,
+    decimals: 18,
+    isGasless: false,
+    badge: 'Stable',
+    badgeDesc: 'BEP-20 stablecoin',
+  },
+  USDC: {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' as `0x${string}`,
+    decimals: 18,
+    isGasless: false,
+    badge: 'Stable',
+    badgeDesc: 'BEP-20 stablecoin',
+  },
+};
+
+export function getPaymentTokensForNetwork(network: BscNetwork): Record<string, PaymentTokenConfig> {
+  return network === 'bscTestnet' ? TESTNET_PAYMENT_TOKENS : MAINNET_PAYMENT_TOKENS;
+}
+
+// Default export for backward compatibility
+export const PAYMENT_TOKENS = MAINNET_PAYMENT_TOKENS;
+
+export type SupportedPaymentToken = string;
+
+const U_TOKEN_ADDRESS = PAYMENT_TOKENS.U.address;
 
 const erc20BalanceOfAbi = [
   {
@@ -230,7 +316,7 @@ export function getClient(network: BscNetwork) {
   return network === 'bscMainnet' ? bscMainnetClient : bscTestnetClient;
 }
 
-function utf8ToHex(s: string): string {
+export function utf8ToHex(s: string): string {
   const bytes = new TextEncoder().encode(s);
   let hex = '';
   for (const b of bytes) hex += b.toString(16).padStart(2, '0');
@@ -296,3 +382,157 @@ export async function fetchUBalance(address: string): Promise<number> {
     return 0;
   }
 }
+
+let cachedBnbPrice = 600.0;
+let lastBnbPriceFetch = 0;
+
+/**
+ * Fetch real-time BNB/USD price from Binance Public Ticker API with cache and safe fallback.
+ */
+export async function fetchBnbPrice(): Promise<number> {
+  const now = Date.now();
+  if (now - lastBnbPriceFetch < 30_000 && cachedBnbPrice > 0) {
+    return cachedBnbPrice;
+  }
+  try {
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT');
+    if (res.ok) {
+      const data = await res.json();
+      const p = Number(data.price);
+      if (Number.isFinite(p) && p > 0) {
+        cachedBnbPrice = p;
+        lastBnbPriceFetch = now;
+        return p;
+      }
+    }
+  } catch {
+    // Fallback to last cached price or default $600
+  }
+  return cachedBnbPrice;
+}
+
+export interface MultiTokenBalances {
+  BNB: number;
+  U: number;
+  USDT: number;
+  USDC: number;
+}
+
+/**
+ * Fetch real on-chain balances for all supported payment tokens.
+ */
+export async function fetchAllTokenBalances(
+  address: string,
+  network: BscNetwork
+): Promise<MultiTokenBalances> {
+  if (!address) {
+    return { BNB: 0, U: 0, USDT: 0, USDC: 0 };
+  }
+
+  const bnbPromise = fetchNativeBalance(address, network);
+
+  if (network === 'bscTestnet') {
+    const [bnb, uResult] = await Promise.all([
+      bnbPromise,
+      (bscTestnetClient as any).readContract({
+        address: CONTRACT_ADDRESSES.U_TOKEN_TESTNET,
+        abi: erc20BalanceOfAbi,
+        functionName: 'balanceOf',
+        args: [address as `0x${string}`],
+      }).catch(() => 0n),
+    ]);
+
+    return {
+      BNB: bnb,
+      U: Number(formatUnits(uResult, 18)),
+      USDT: 0,
+      USDC: 0,
+    };
+  }
+
+  const client = bscMainnetClient as any;
+
+  const [bnb, uResult, usdtResult, usdcResult] = await Promise.all([
+    bnbPromise,
+    client.readContract({
+      address: PAYMENT_TOKENS.U.address,
+      abi: erc20BalanceOfAbi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+    }).catch(() => 0n),
+    client.readContract({
+      address: PAYMENT_TOKENS.USDT.address,
+      abi: erc20BalanceOfAbi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+    }).catch(() => 0n),
+    client.readContract({
+      address: PAYMENT_TOKENS.USDC.address,
+      abi: erc20BalanceOfAbi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+    }).catch(() => 0n),
+  ]);
+
+  return {
+    BNB: bnb,
+    U: Number(formatUnits(uResult, 18)),
+    USDT: Number(formatUnits(usdtResult, 18)),
+    USDC: Number(formatUnits(usdcResult, 18)),
+  };
+}
+
+/**
+ * Check if the address is allowed to claim testnet $U from faucet (30-minute cooldown).
+ */
+export async function isTestnetFaucetAllowed(address: string): Promise<boolean> {
+  if (!address) return false;
+  try {
+    const allowed = await (bscTestnetClient as any).readContract({
+      address: CONTRACT_ADDRESSES.U_FAUCET_TESTNET,
+      abi: U_FAUCET_ABI,
+      functionName: 'allowedToWithdraw',
+      args: [address as `0x${string}`],
+    });
+    return Boolean(allowed);
+  } catch {
+    return true; // Fallback to allowing user to attempt claim
+  }
+}
+
+/**
+ * Trigger the public $U Faucet on BSC Testnet (pays 10 $U to caller).
+ */
+export async function claimTestnetUFaucet(
+  provider: Eip1193Provider,
+  address: string
+): Promise<{ txHash: string }> {
+  if (!provider || !address) {
+    throw new Error('Wallet not connected');
+  }
+
+  const allowed = await isTestnetFaucetAllowed(address);
+  if (!allowed) {
+    throw new Error('Faucet cooldown active: You can claim 10 $U once every 30 minutes.');
+  }
+
+  const callData = encodeFunctionData({
+    abi: U_FAUCET_ABI,
+    functionName: 'requestTokens',
+    args: [],
+  });
+
+  const txHash = await provider.request({
+    method: 'eth_sendTransaction',
+    params: [
+      {
+        from: address,
+        to: CONTRACT_ADDRESSES.U_FAUCET_TESTNET,
+        data: callData,
+      },
+    ],
+  });
+
+  return { txHash };
+}
+
