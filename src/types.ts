@@ -43,12 +43,26 @@ export interface AgentData {
   banditScore?: number;
 }
 
+export interface OnchainActivity {
+  txHash: string;
+  blockNumber?: number;
+  timestamp: number;
+  from: string;
+  to: string;
+  methodName: string;
+  contractName?: string;
+  status: 'success' | 'reverted';
+  value?: string;
+  gasUsed?: string;
+}
+
 export interface HireData {
   id: string;
   buyer: string;
   buyerAddress?: string;
   chainId: number;
   agentId: string;
+  agentWallet?: string | null;
   catalog: CareerCategory | string;
   rail: 'x402' | 'erc8183';
   jobId?: string | null;
@@ -59,6 +73,10 @@ export interface HireData {
   paymentAmount?: string | null;
   artifactUri?: string | null;
   lastAction?: string | null;
+  deadlineHours?: string;
+  expiresAt?: string;
+  settledAt?: string;
+  onchainActivities?: OnchainActivity[];
   createdAt: string | Date;
   updatedAt: string | Date;
 }

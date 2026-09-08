@@ -16,8 +16,8 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
   onSelectHiredSlot,
   onNavigate,
 }) => {
-  // Unlimited slots: Show active working agents (pending, funded, running, submitted); settled jobs are archived in History Book.
-  const activeHires = hires.filter((h) => ['pending', 'funded', 'running', 'submitted'].includes(h.state));
+  // Unlimited slots: Show active working agents (pending, funded, running, submitted, paid)
+  const activeHires = hires.filter((h) => ['pending', 'funded', 'running', 'submitted', 'paid'].includes(h.state));
   const minSlots = Math.max(4, activeHires.length + 1);
   const slots: (HireData | null)[] = [
     ...activeHires,
@@ -68,24 +68,46 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
           const agent = agents.find((a) => a.agentId === hire.agentId);
           const rawCareer = (hire.catalog || 'rebalancing') as string;
           const career = (rawCareer === 'monitoring' ? 'rebalancing' : rawCareer) as 'rebalancing' | 'grid' | 'health_factor' | 'yield';
-          const spriteSrc = getPixelSprite(career, hire.state);
+
+          const createdMs = hire.createdAt ? new Date(hire.createdAt).getTime() : Date.now();
+          const durationMs = Math.max(1000, Math.round(Number(hire.deadlineHours || '24') * 3600 * 1000));
+          const expiresAtMs = hire.expiresAt ? new Date(hire.expiresAt).getTime() : createdMs + durationMs;
+          const isLeaseExpired = Date.now() >= expiresAtMs;
+
+          const spriteSrc = getPixelSprite(
+            career,
+            hire.state === 'paid' ? (isLeaseExpired ? 'idle' : 'running') : hire.state
+          );
 
           const stateColor =
-            hire.state === 'running' || hire.state === 'funded'
+            hire.state === 'paid'
+              ? isLeaseExpired
+                ? 'bg-[#FFE500]'
+                : 'bg-[#00F59B]'
+              : isLeaseExpired && (hire.state === 'funded' || hire.state === 'running')
+              ? 'bg-[#FF4365]'
+              : hire.state === 'running' || hire.state === 'funded'
               ? 'bg-[#00F59B]'
               : hire.state === 'submitted'
               ? 'bg-[#FFE500]'
-              : hire.state === 'paid'
-              ? 'bg-[#38BDF8]'
               : hire.state === 'pending'
               ? 'bg-[#F59E0B]'
               : 'bg-[#FF4365]';
+
+          const statusLabel =
+            hire.state === 'paid'
+              ? isLeaseExpired
+                ? 'LEASE EXPIRED (CLICK TO RENEW)'
+                : 'MONITORING ACTIVE'
+              : isLeaseExpired && (hire.state === 'funded' || hire.state === 'running')
+              ? 'SLA BREACHED (REFUND READY)'
+              : hire.state.toUpperCase();
 
           return (
             <button
               key={hire.id || `hire-${i}`}
               onClick={() => onSelectHiredSlot(hire)}
-              title={`${agent?.name || hire.agentId} #${i + 1} (${hire.state.toUpperCase()}) — Click to view agent`}
+              title={`${agent?.name || hire.agentId} #${i + 1} (${statusLabel}) — Click to view agent`}
               className="w-10 h-10 sm:w-11 sm:h-11 bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm hover:neo-shadow flex flex-col items-center justify-center relative rounded-none shrink-0 transition-all hover:translate-y-[-2px]"
             >
               <img

@@ -283,9 +283,11 @@ export const HireModal: React.FC<HireModalProps> = ({
       const recordedPaymentToken =
         selectedToken === 'BNB' && network === 'bscTestnet' ? 'tBNB' : selectedToken;
       const recordedPaymentAmount = getTokenAmount(selectedToken);
+      const agentWallet = agent.rawJson?.agentWallet || (agent as any).agentWallet || agent.creatorAddress || null;
 
       await onConfirmHire({
         agentId: agent.agentId,
+        agentWallet,
         catalog: career,
         rail: resolvedRail,
         budgetU: numericBudget.toFixed(2),

@@ -349,6 +349,7 @@ export default function App() {
   // Handle hiring an agent (100% Stateless On-Chain, Zero DB Writes)
   const handleHireAgent = async (payload: {
     agentId: string;
+    agentWallet?: string | null;
     catalog: CareerCategory | string;
     rail: 'x402' | 'erc8183';
     budgetU: string;
@@ -366,6 +367,7 @@ export default function App() {
       buyerAddress: walletAddress,
       chainId: resolvedChainId,
       agentId: payload.agentId,
+      agentWallet: payload.agentWallet,
       catalog: payload.catalog,
       rail: payload.rail,
       jobId: payload.txHash ? `job_${payload.txHash.slice(0, 10)}` : `job_bsc_${Date.now()}`,
@@ -378,6 +380,8 @@ export default function App() {
       lastAction: payload.txHash
         ? `Escrow deposit funded in ${payload.paymentToken || 'U'} on BSC (${network === 'bscTestnet' ? 'Testnet' : 'Mainnet'})`
         : 'Escrow active on-chain',
+      deadlineHours: payload.deadlineHours || '24',
+      expiresAt: new Date(Date.now() + Number(payload.deadlineHours || '24') * 3600 * 1000).toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -416,7 +420,7 @@ export default function App() {
           refreshBalances(walletAddress, network);
         }
         if (newState === 'paid') {
-          notify('Escrow released! Chamber vacated and archived in History Book.', 'ok');
+          notify('Escrow released! Sentinel transitioned to active monitoring mode & proof archived.', 'ok');
         } else if (newState === 'expired') {
           notify('Escrow deposit reclaimed. Chamber vacated.', 'ok');
         } else if (newState === 'rejected') {
@@ -544,7 +548,7 @@ export default function App() {
   const currentNetworkHires = hires.filter((h) => Number(h.chainId) === activeChainId);
 
   const activeJobsCount = currentNetworkHires.filter(
-    (h) => h.state === 'funded' || h.state === 'running' || h.state === 'submitted'
+    (h) => h.state === 'funded' || h.state === 'running' || h.state === 'submitted' || h.state === 'paid'
   ).length;
 
   return (

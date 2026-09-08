@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "tsx test/ux-writing.test.ts && tsx test/8004scan-live.test.ts && tsx test/full-marketplace-suite.test.ts",
+    "test": "tsx test/ux-writing.test.ts && tsx test/8004scan-live.test.ts && tsx test/full-marketplace-suite.test.ts && tsx test/onchain-activity.test.ts",
     "test:mainnet": "tsx test/mainnet-hire-flow.test.ts",
     "test:testnet": "tsx test/testnet-hire-flow.test.ts"
   },
@@ -17,6 +17,7 @@
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "agent-desktop": "^0.8.5",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",

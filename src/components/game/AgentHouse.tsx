@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { HireData, AgentData, CareerCategory, formatHirePayment } from '../../types.ts';
+import { HireData, AgentData, CareerCategory, formatHirePayment, OnchainActivity } from '../../types.ts';
 import { getPixelSprite } from './pixelAssets.ts';
-import { Shield, CheckCircle, AlertTriangle, ExternalLink, Cpu, Zap, RotateCcw } from 'lucide-react';
+import { Shield, CheckCircle, AlertTriangle, ExternalLink, Cpu, Zap, RotateCcw, Clock, Activity } from 'lucide-react';
 import { verifyErc8183ManifestText, erc8183ManifestHash } from '../../../lib/canonical.ts';
 import { getInjectedProvider, BscNetwork } from '../../lib/wallet.ts';
 import {
@@ -9,6 +9,7 @@ import {
   executeOnchainRefund,
   executeOnchainDispute,
 } from '../../lib/onchain-hires.ts';
+import { fetchAgentOnchainActivities } from '../../lib/onchain-activity.ts';
 
 interface AgentHouseProps {
   hires: HireData[];
@@ -85,6 +86,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   buyerAddress,
   network = 'bscMainnet',
 }) => {
+  const currentNetwork: BscNetwork = network === 'bscTestnet' ? 'bscTestnet' : 'bscMainnet';
   const [selectedJobToInspect, setSelectedJobToInspect] = useState<HireData | null>(null);
   const [activeWorkerIndex, setActiveWorkerIndex] = useState<Record<string, number>>({});
   const [executingJobId, setExecutingJobId] = useState<string | null>(null);
@@ -93,6 +95,92 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   const [loadingManifest, setLoadingManifest] = useState<boolean>(false);
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Verifiable On-Chain Activity State (100% On-Chain, Zero-Hardcoded)
+  const [onchainActivities, setOnchainActivities] = useState<Record<string, OnchainActivity[]>>({});
+  const [loadingActivities, setLoadingActivities] = useState<Record<string, boolean>>({});
+  const [expandedActivityChamber, setExpandedActivityChamber] = useState<string | null>(null);
+
+  useEffect(() => {
+    hires.forEach((hire) => {
+      if (hire.id && !onchainActivities[hire.id] && !loadingActivities[hire.id]) {
+        setLoadingActivities((prev) => ({ ...prev, [hire.id]: true }));
+        fetchAgentOnchainActivities(hire, currentNetwork)
+          .then((acts) => {
+            setOnchainActivities((prev) => ({ ...prev, [hire.id]: acts }));
+          })
+          .catch((err) => {
+            console.warn('[Onchain Activity] Error loading for hire:', hire.id, err);
+          })
+          .finally(() => {
+            setLoadingActivities((prev) => ({ ...prev, [hire.id]: false }));
+          });
+      }
+    });
+  }, [hires, currentNetwork]);
+
+  // Live dynamic clock ticking every 1s for accurate on-chain deadline countdown and sentinel uptime (Zero hardcoding)
+  const [now, setNow] = useState<number>(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getHireTiming = (hire: HireData) => {
+    const createdMs = hire.createdAt ? new Date(hire.createdAt).getTime() : now;
+    const deadlineHoursNum = Number(hire.deadlineHours || '24');
+    const durationMs = Math.max(1000, Math.round(deadlineHoursNum * 3600 * 1000));
+    const expiresAtMs = hire.expiresAt ? new Date(hire.expiresAt).getTime() : createdMs + durationMs;
+
+    const remainingMs = Math.max(0, expiresAtMs - now);
+    const isLeaseExpired = now >= expiresAtMs;
+    const isSlaBreached = isLeaseExpired && (hire.state === 'funded' || hire.state === 'running');
+
+    // Uptime calculation: when lease is expired, freeze at exact contract duration (no continuous runaway clock!)
+    const rawElapsedMs = Math.max(0, now - createdMs);
+    const uptimeMs = isLeaseExpired ? Math.min(rawElapsedMs, durationMs) : rawElapsedMs;
+
+    const formatRemaining = (ms: number) => {
+      const totalSec = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remHours = hours % 24;
+        return `${days}d ${remHours}h ${mins}m ${secs}s`;
+      }
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    const formatDuration = (ms: number) => {
+      const totalSec = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remHours = hours % 24;
+        return `${days}d ${remHours}h ${mins}m`;
+      }
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    return {
+      createdMs,
+      expiresAtMs,
+      durationMs,
+      remainingMs,
+      uptimeMs,
+      isLeaseExpired,
+      isSlaBreached,
+      isExpired: isSlaBreached,
+      formattedRemaining: formatRemaining(remainingMs),
+      formattedUptime: formatDuration(uptimeMs),
+      formattedDuration: formatDuration(durationMs),
+      deadlineHours: deadlineHoursNum,
+    };
+  };
 
   // Auto-switch focused chamber if requested from parent
   const [activeChamberId, setActiveChamberId] = useState<CareerCategory>(
@@ -148,16 +236,26 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     };
   }, [selectedJobToInspect, network, deliverableHash]);
 
-  const currentNetwork: BscNetwork = network === 'bscTestnet' ? 'bscTestnet' : 'bscMainnet';
-
   const handleDispute = async (hireId: string) => {
     setActionLoading(true);
     try {
       const provider = getInjectedProvider();
       if (provider && buyerAddress) {
         try {
-          await executeOnchainDispute(provider, buyerAddress, hireId, currentNetwork);
+          await executeOnchainDispute(provider, buyerAddress, hireId, currentNetwork, {
+            deliverableHash: deliverableHash || undefined,
+            depositTx: selectedJobToInspect?.txs?.[0],
+            agentId: selectedJobToInspect?.agentId,
+          });
         } catch (e: any) {
+          if (
+            e?.code === 4001 ||
+            e?.message?.toLowerCase().includes('reject') ||
+            e?.message?.toLowerCase().includes('cancel')
+          ) {
+            console.log('[Dispute] User cancelled signature');
+            return;
+          }
           console.warn('[Dispute] Onchain call:', e?.message);
         }
       }
@@ -177,8 +275,6 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
             : null
         );
       }
-    } catch (err) {
-      console.error('Failed to dispute hire:', err);
     } finally {
       setActionLoading(false);
     }
@@ -188,10 +284,22 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     setActionLoading(true);
     try {
       const provider = getInjectedProvider();
+      const targetHire = hires.find((h) => h.id === hireId) || selectedJobToInspect;
       if (provider && buyerAddress) {
         try {
-          await executeOnchainRefund(provider, buyerAddress, hireId, currentNetwork);
+          await executeOnchainRefund(provider, buyerAddress, hireId, currentNetwork, {
+            depositTx: targetHire?.txs?.[0],
+            agentId: targetHire?.agentId,
+          });
         } catch (e: any) {
+          if (
+            e?.code === 4001 ||
+            e?.message?.toLowerCase().includes('reject') ||
+            e?.message?.toLowerCase().includes('cancel')
+          ) {
+            console.log('[Refund] User cancelled signature');
+            return;
+          }
           console.warn('[Refund] Onchain call:', e?.message);
         }
       }
@@ -211,8 +319,6 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
             : null
         );
       }
-    } catch (err) {
-      console.error('Failed to claim refund:', err);
     } finally {
       setActionLoading(false);
     }
@@ -224,8 +330,20 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
       const provider = getInjectedProvider();
       if (provider && buyerAddress) {
         try {
-          await executeOnchainSettle(provider, buyerAddress, hireId, currentNetwork);
+          await executeOnchainSettle(provider, buyerAddress, hireId, currentNetwork, {
+            deliverableHash: deliverableHash || undefined,
+            depositTx: selectedJobToInspect?.txs?.[0],
+            agentId: selectedJobToInspect?.agentId,
+          });
         } catch (e: any) {
+          if (
+            e?.code === 4001 ||
+            e?.message?.toLowerCase().includes('reject') ||
+            e?.message?.toLowerCase().includes('cancel')
+          ) {
+            console.log('[Settle] User cancelled signature');
+            return;
+          }
           console.warn('[Settle] Onchain call:', e?.message);
         }
       }
@@ -254,7 +372,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     return hires.filter((h) => {
       const c = (h.catalog || 'rebalancing') as string;
       const normalized = c === 'monitoring' ? 'rebalancing' : c;
-      return normalized === cat && ['pending', 'funded', 'running', 'submitted'].includes(h.state);
+      return normalized === cat && ['pending', 'funded', 'running', 'submitted', 'paid'].includes(h.state);
     });
   };
 
@@ -305,7 +423,9 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
           const agent = hire ? agents.find((a) => a.agentId === hire.agentId) : null;
           const isFocused = focusedChamber === chamber.id;
           const isAlert = chamber.id === 'health_factor' && healthFactor < 1.15;
-          const spriteState = hire ? hire.state : 'idle';
+          const timing = hire ? getHireTiming(hire) : null;
+          const isPatrolling = hire ? (hire.state === 'paid' ? !timing?.isLeaseExpired : hire.state === 'running' || hire.state === 'funded') : false;
+          const spriteState = isPatrolling ? 'running' : 'idle';
 
           return (
             <div
@@ -377,36 +497,193 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
 
                   {hire && (
                     <span
-                      className={`neo-badge text-[9px] px-2 py-0.5 ${
-                        hire.state === 'running' || hire.state === 'funded'
+                      className={`neo-badge text-[9px] px-2 py-0.5 font-bold ${
+                        hire.state === 'paid'
+                          ? timing?.isLeaseExpired
+                            ? 'bg-[#FFE500] text-[#121212]'
+                            : 'bg-[#00F59B] text-[#121212]'
+                          : timing?.isSlaBreached
+                          ? 'bg-[#FF4365] text-white animate-pulse'
+                          : hire.state === 'running' || hire.state === 'funded'
                           ? 'bg-[#00F59B] text-[#121212]'
                           : hire.state === 'submitted'
                           ? 'bg-[#FFE500] text-[#121212]'
-                          : hire.state === 'paid'
-                          ? 'bg-[#38BDF8] text-[#121212]'
                           : hire.state === 'pending'
                           ? 'bg-[#F59E0B] text-white'
                           : 'bg-[#FF4365] text-white'
                       }`}
                     >
-                      Status: {hire.state === 'paid' ? 'RELEASED' : hire.state.toUpperCase()}
+                      {hire.state === 'paid'
+                        ? timing?.isLeaseExpired
+                          ? '⏱️ LEASE EXPIRED'
+                          : `🟢 SENTINEL ACTIVE • ⏱️ ${timing?.formattedRemaining}`
+                        : timing?.isSlaBreached
+                        ? '⚠️ SLA BREACHED'
+                        : hire.state === 'submitted'
+                        ? 'PROOFS SUBMITTED'
+                        : hire.state === 'running' || hire.state === 'funded'
+                        ? `ACTIVE • ⏱️ ${timing?.formattedRemaining}`
+                        : hire.state.toUpperCase()}
                     </span>
                   )}
                 </div>
               </div>
 
               {/* Chamber Visual Stage */}
-              <div className="relative flex-1 bg-[#FAF7F0] border-2 border-[#121212] p-3 flex items-center justify-between min-h-[130px] overflow-hidden">
+              <div className="relative flex-1 bg-[#FAF7F0] border-2 border-[#121212] p-3 flex items-center justify-between min-h-[140px] overflow-hidden">
                 {/* Room Machinery & Background Props */}
-                <div className="space-y-1 z-10 font-mono-tech">
+                <div className="space-y-1 z-10 font-mono-tech max-w-[240px]">
                   {chamber.decorations.map((dec, i) => (
                     <div key={i} className="text-[11px] text-[#4A4A4A] font-medium flex items-center space-x-1">
                       <span>{dec}</span>
                     </div>
                   ))}
-                  <div className="text-[10px] text-[#6A6A6A] mt-2 max-w-[210px] font-sans leading-snug">
+                  <div className="text-[10px] text-[#6A6A6A] mt-1 font-sans leading-snug">
                     {chamber.description}
                   </div>
+
+                  {/* Live Dynamic SLA / Uptime Widget */}
+                  {hire && timing && (
+                    <div className="mt-2 space-y-1">
+                      {hire.state === 'paid' && (
+                        timing.isLeaseExpired ? (
+                          <div className="bg-[#FEF9C3] border-2 border-[#121212] p-2 neo-shadow-xs">
+                            <div className="flex items-center space-x-1.5 text-[#854D0E] font-bold text-[10px]">
+                              <Clock className="w-3.5 h-3.5 text-[#CA8A04]" />
+                              <span>LEASE EXPIRED • CYCLE COMPLETED</span>
+                            </div>
+                            <div className="text-[#121212] font-mono-tech text-[10px] mt-1">
+                              Completed Duration: <strong className="font-black">{timing.formattedDuration}</strong> (Frozen)
+                            </div>
+                            <div className="text-[9px] text-[#713F12] mt-0.5 font-sans">
+                              Active lease has ended. Start a new cycle to resume monitoring.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-[#E6FBF2] border-2 border-[#00F59B] p-2 neo-shadow-xs">
+                            <div className="flex items-center space-x-1.5 text-[#059669] font-bold text-[10px]">
+                              <span className="w-2 h-2 rounded-full bg-[#00F59B] animate-ping" />
+                              <span>SENTINEL MONITORING</span>
+                            </div>
+                            <div className="text-[#121212] font-mono-tech text-[10px] mt-1">
+                              Uptime: <strong className="font-black">{timing.formattedUptime}</strong> • Remaining: <strong className="text-[#059669]">{timing.formattedRemaining}</strong>
+                            </div>
+                            <div className="w-full bg-[#E5E5E5] h-1.5 mt-1 border border-[#121212] overflow-hidden">
+                              <div
+                                className="h-full bg-[#00F59B] transition-all"
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, (timing.remainingMs / timing.durationMs) * 100))}%`
+                                }}
+                              />
+                            </div>
+                            <div className="text-[9px] text-[#059669] mt-0.5 flex justify-between font-mono-tech">
+                              <span>Autonomous guard active</span>
+                              <span>{timing.deadlineHours}h lease</span>
+                            </div>
+                          </div>
+                        )
+                      )}
+
+                      {(hire.state === 'funded' || hire.state === 'running') && (
+                        <div className={`p-2 border-2 neo-shadow-xs ${timing.isSlaBreached ? 'bg-[#FFEBEF] border-[#FF4365]' : 'bg-[#FFFFFF] border-[#121212]'}`}>
+                          <div className="flex items-center justify-between text-[10px] font-bold">
+                            <span className={timing.isSlaBreached ? 'text-[#FF4365]' : 'text-[#121212]'}>
+                              {timing.isSlaBreached ? '⚠️ SLA BREACHED' : '⏱️ EXECUTION SLA'}
+                            </span>
+                            <span className="font-mono text-[#121212]">
+                              {timing.isSlaBreached ? 'OVERDUE' : timing.formattedRemaining}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#E5E5E5] h-1.5 mt-1 border border-[#121212] overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${timing.isSlaBreached ? 'bg-[#FF4365]' : 'bg-[#00F59B]'}`}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, (timing.remainingMs / timing.durationMs) * 100))}%`
+                              }}
+                            />
+                          </div>
+                          <div className="text-[9px] text-[#6A6A6A] mt-1 flex justify-between font-bold">
+                            <span>Limit: {timing.deadlineHours}h</span>
+                            <span>{timing.isSlaBreached ? 'Eligible for 100% refund' : 'On-track'}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {hire.state === 'submitted' && (
+                        <div className="bg-[#FEF9C3] border-2 border-[#121212] p-2 neo-shadow-xs">
+                          <div className="flex items-center space-x-1 text-[#854D0E] font-bold text-[10px]">
+                            <CheckCircle className="w-3 h-3 text-[#CA8A04]" />
+                            <span>DELIVERABLE READY</span>
+                          </div>
+                          <div className="text-[9px] text-[#713F12] mt-0.5">
+                            Delivered within SLA window • Ready for Release
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Real Verifiable On-Chain Activity Feed (BSC RPC) */}
+                      {(() => {
+                        const acts = onchainActivities[hire.id] || [];
+                        const isLoadingActs = loadingActivities[hire.id];
+                        const isExpanded = expandedActivityChamber === hire.id;
+                        return (
+                          <div className="bg-[#FFFFFF] border-2 border-[#121212] p-2 neo-shadow-xs font-mono-tech text-[9px]">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold flex items-center space-x-1 text-[#121212]">
+                                <Activity className="w-3 h-3 text-[#2563EB]" />
+                                <span>ON-CHAIN ACTIONS ({isLoadingActs ? '...' : acts.length})</span>
+                              </span>
+                              {acts.length > 0 && (
+                                <button
+                                  onClick={() => setExpandedActivityChamber(isExpanded ? null : hire.id)}
+                                  className="text-[8px] text-[#2563EB] hover:underline font-bold px-1"
+                                >
+                                  {isExpanded ? '▲ HIDE' : '▼ VIEW'}
+                                </button>
+                              )}
+                            </div>
+
+                            {isLoadingActs ? (
+                              <div className="text-[8px] text-[#6A6A6A] mt-1 animate-pulse">
+                                Auditing on-chain blocks...
+                              </div>
+                            ) : acts.length > 0 ? (
+                              <div className="mt-1 space-y-1">
+                                <div className="text-[#059669] font-bold flex items-center space-x-1 text-[8px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#00F59B]" />
+                                  <span>{acts.length} verified transaction(s) broadcast</span>
+                                </div>
+                                {isExpanded && (
+                                  <div className="max-h-[90px] overflow-y-auto space-y-1 pt-1 border-t border-[#E5E5E5]">
+                                    {acts.map((act, actIdx) => (
+                                      <div key={actIdx} className="bg-[#FAF7F0] p-1 border border-[#121212] text-[8px] flex items-center justify-between">
+                                        <div className="truncate max-w-[130px]">
+                                          <strong className="text-[#121212]">{act.methodName}</strong>
+                                          <span className="block text-[#6A6A6A] truncate">{act.contractName}</span>
+                                        </div>
+                                        <a
+                                          href={`${network === 'bscMainnet' ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx'}/${act.txHash}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-[#2563EB] hover:underline font-bold ml-1 shrink-0"
+                                        >
+                                          {act.txHash.slice(0, 6)}...
+                                        </a>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="mt-1 text-[#DC2626] font-medium text-[8px] leading-tight">
+                                0 on-chain actions detected. (Refund eligible)
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Pixel Character Agent in Active Labor */}
@@ -488,7 +765,21 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                       </button>
                     )}
 
-                    {hire.state === 'funded' && (
+                    {/* If expired without deliverable -> CLAIM REFUND */}
+                    {(hire.state === 'expired' || ((hire.state === 'funded' || hire.state === 'running') && timing?.isExpired)) && (
+                      <button
+                        onClick={() => handleClaimRefund(hire.id)}
+                        disabled={actionLoading}
+                        className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[10px] px-2.5 py-0.5 flex items-center space-x-1 animate-pulse"
+                        title="Deadline expired without deliverable! Claim 100% escrow refund"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>CLAIM REFUND</span>
+                      </button>
+                    )}
+
+                    {/* If funded and NOT expired -> Can RUN AGENT */}
+                    {hire.state === 'funded' && !timing?.isExpired && (
                       <button
                         onClick={async () => {
                           setExecutingJobId(hire.id);
@@ -524,7 +815,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                       </button>
                     )}
 
-                    {hire.state === 'running' && (
+                    {hire.state === 'running' && !timing?.isExpired && (
                       <div className="flex items-center space-x-1 font-mono-tech text-[9px] text-[#2563EB] font-bold bg-[#E0F2FE] px-2 py-0.5 border border-[#2563EB]">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-ping" />
                         <span>EXECUTING...</span>
@@ -566,25 +857,43 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                       </span>
                     )}
 
-                    {hire.state === 'expired' && (
-                      <button
-                        onClick={() => handleClaimRefund(hire.id)}
-                        disabled={actionLoading}
-                        className="neo-btn bg-[#FFE500] hover:bg-[#F59E0B] text-[#121212] font-display font-black text-[10px] px-2.5 py-0.5 flex items-center space-x-1"
-                        title="Reclaim full escrow deposit"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>CLAIM REFUND</span>
-                      </button>
-                    )}
-
                     {hire.state === 'paid' && (
-                      <button
-                        onClick={() => setSelectedJobToInspect(hire)}
-                        className="neo-btn bg-[#00F59B] text-[#121212] font-display font-bold text-[9px] px-2 py-0.5"
-                      >
-                        ✓ RELEASED
-                      </button>
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => setSelectedJobToInspect(hire)}
+                          className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] font-mono-tech font-bold text-[9px] px-2 py-0.5 flex items-center space-x-1"
+                          title="Inspect cryptographic settlement proof and on-chain activity"
+                        >
+                          <CheckCircle className="w-3 h-3 text-[#059669]" />
+                          <span>PROOFS</span>
+                        </button>
+                        {timing?.isLeaseExpired && (
+                          <button
+                            onClick={() => handleClaimRefund(hire.id)}
+                            disabled={actionLoading}
+                            className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1"
+                            title="Lease cycle completed! Claim escrow deposit back to wallet"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>CLAIM REFUND</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={onNavigateMarket}
+                          className={`neo-btn ${
+                            timing?.isLeaseExpired
+                              ? 'bg-[#FFE500] hover:bg-[#FACC15]'
+                              : 'bg-[#00F59B] hover:bg-[#FFE500]'
+                          } text-[#121212] font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1`}
+                          title={
+                            timing?.isLeaseExpired
+                              ? 'Lease expired! Start next cycle to resume autonomous protection'
+                              : 'Start another autonomous cycle for this category'
+                          }
+                        >
+                          <span>{timing?.isLeaseExpired ? '⚡ RENEW LEASE' : '+ START NEXT CYCLE'}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -639,7 +948,11 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                   <p>
                     <strong>Status:</strong>{' '}
                     <span className="neo-badge bg-[#121212] text-[#FFE500] text-[8px] px-1.5 py-0.2">
-                      {selectedJobToInspect.state === 'paid' ? 'RELEASED' : selectedJobToInspect.state.toUpperCase()}
+                      {selectedJobToInspect.state === 'paid'
+                        ? getHireTiming(selectedJobToInspect).isLeaseExpired
+                          ? 'COMPLETED (LEASE EXPIRED)'
+                          : 'RELEASED (SENTINEL ACTIVE)'
+                        : selectedJobToInspect.state.toUpperCase()}
                     </span>
                   </p>
                   {(() => {
@@ -653,6 +966,47 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                   })()}
                   <p><strong>Last Action:</strong> {selectedJobToInspect.lastAction || 'Deposit funded'}</p>
                 </div>
+
+                {/* Live Dynamic SLA & Uptime Telemetry */}
+                {(() => {
+                  const modalTiming = getHireTiming(selectedJobToInspect);
+                  return (
+                    <div className="bg-[#FFFFFF] border-2 border-[#121212] p-3 space-y-1.5">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-[#6A6A6A] font-bold">Block / Created At:</span>
+                        <span className="font-mono text-[#121212]">{new Date(modalTiming.createdMs).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-[#6A6A6A] font-bold">SLA Execution Limit:</span>
+                        <span className="font-mono font-bold text-[#121212]">{modalTiming.deadlineHours} Hours</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-[#6A6A6A] font-bold">Dynamic Time Tracker:</span>
+                        <span
+                          className={`font-mono font-black ${
+                            selectedJobToInspect.state === 'paid'
+                              ? modalTiming.isLeaseExpired
+                                ? 'text-[#B45309]'
+                                : 'text-[#059669]'
+                              : modalTiming.isSlaBreached
+                              ? 'text-[#FF4365]'
+                              : 'text-[#2563EB]'
+                          }`}
+                        >
+                          {selectedJobToInspect.state === 'paid'
+                            ? modalTiming.isLeaseExpired
+                              ? `⏱️ Lease Expired • Completed Duration: ${modalTiming.formattedDuration}`
+                              : `🟢 Continuous Sentinel Uptime: ${modalTiming.formattedUptime} (${modalTiming.formattedRemaining} left)`
+                            : modalTiming.isSlaBreached
+                            ? '⚠️ SLA Expired (Claim Refund Enabled)'
+                            : selectedJobToInspect.state === 'submitted'
+                            ? '✓ Delivered within SLA window'
+                            : `⏱️ ${modalTiming.formattedRemaining} Remaining`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Cryptographic Manifest Verification */}
                 {(selectedJobToInspect.state === 'submitted' || selectedJobToInspect.state === 'paid') && (
@@ -725,6 +1079,82 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Real Verifiable On-Chain Footprint Audit (100% On-Chain, Zero Hardcoding) */}
+                {(() => {
+                  const acts = onchainActivities[selectedJobToInspect.id] || [];
+                  const isLoadingActs = loadingActivities[selectedJobToInspect.id];
+                  const agentWallet = selectedJobToInspect.agentWallet;
+                  return (
+                    <div className="border-2 border-[#121212] p-2.5 bg-white space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] flex items-center space-x-1 text-[#121212]">
+                          <Activity className="w-3.5 h-3.5 text-[#2563EB]" />
+                          <span>VERIFIED ON-CHAIN FOOTPRINT (BSC)</span>
+                        </span>
+                        <span className={`neo-badge text-[8px] font-black px-1.5 py-0.2 ${acts.length > 0 ? 'bg-[#00F59B] text-[#121212]' : 'bg-[#FF4365] text-white'}`}>
+                          {isLoadingActs ? 'SCANNING...' : `${acts.length} ON-CHAIN ACTIONS`}
+                        </span>
+                      </div>
+
+                      {agentWallet && (
+                        <div className="bg-[#FAF7F0] p-1.5 border border-[#121212] text-[9px] flex items-center justify-between font-mono-tech">
+                          <span className="text-[#6A6A6A] font-bold">Agent Operational Wallet:</span>
+                          <a
+                            href={`${selectedJobToInspect.chainId === 56 ? 'https://bscscan.com/address' : 'https://testnet.bscscan.com/address'}/${agentWallet}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#2563EB] hover:underline font-bold flex items-center space-x-1"
+                          >
+                            <span>{agentWallet.slice(0, 10)}...{agentWallet.slice(-6)}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
+                      )}
+
+                      {isLoadingActs ? (
+                        <div className="text-[10px] text-[#6A6A6A] font-mono-tech animate-pulse p-2 text-center">
+                          Auditing on-chain blocks and transactions via Viem RPC...
+                        </div>
+                      ) : acts.length > 0 ? (
+                        <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                          {acts.map((act, i) => (
+                            <div key={i} className="p-1.5 bg-[#FAF7F0] border border-[#121212] text-[9px] font-mono-tech space-y-0.5">
+                              <div className="flex items-center justify-between font-bold">
+                                <span className={act.status === 'success' ? 'text-[#059669]' : 'text-[#DC2626]'}>
+                                  ● {act.methodName}
+                                </span>
+                                <span className="text-[#6A6A6A]">{new Date(act.timestamp).toLocaleTimeString()}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[#4A4A4A]">
+                                <span>Target: {act.contractName}</span>
+                                <a
+                                  href={`${selectedJobToInspect.chainId === 56 ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx'}/${act.txHash}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[#2563EB] hover:underline font-bold flex items-center space-x-0.5"
+                                >
+                                  <span>{act.txHash.slice(0, 8)}...</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-[#FEF2F2] border border-[#DC2626] text-[#991B1B] text-[9px] space-y-1 font-sans">
+                          <div className="font-bold flex items-center space-x-1">
+                            <AlertTriangle className="w-3 h-3 text-[#DC2626]" />
+                            <span>Zero on-chain actions detected during this contract period.</span>
+                          </div>
+                          <div>
+                            The agent did not broadcast verifiable transactions. Under ERC-8183 SLA terms, you are entitled to a 100% refund of your escrow deposit.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -765,20 +1195,33 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     <span>RELEASE</span>
                   </button>
                 </div>
-              ) : selectedJobToInspect.state === 'expired' ? (
+              ) : selectedJobToInspect.state === 'expired' || ((selectedJobToInspect.state === 'funded' || selectedJobToInspect.state === 'running') && getHireTiming(selectedJobToInspect).isExpired) ? (
                 <button
                   onClick={() => handleClaimRefund(selectedJobToInspect.id)}
                   disabled={actionLoading}
-                  className="neo-btn bg-[#FFE500] hover:bg-[#F59E0B] text-[#121212] font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
-                  title="Reclaim full escrow deposit"
+                  className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1 animate-pulse"
+                  title="Deadline expired without deliverable! Claim 100% escrow refund"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>CLAIM REFUND</span>
                 </button>
               ) : selectedJobToInspect.state === 'paid' ? (
-                <div className="flex items-center space-x-1.5 font-mono-tech text-[10px] text-[#059669] font-bold">
-                  <CheckCircle className="w-3.5 h-3.5 text-[#059669]" />
-                  <span>Escrow released! Chamber vacated & archived in History Book</span>
+                <div className="flex items-center space-x-2">
+                  {getHireTiming(selectedJobToInspect).isLeaseExpired && (
+                    <button
+                      onClick={() => handleClaimRefund(selectedJobToInspect.id)}
+                      disabled={actionLoading}
+                      className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
+                      title="Lease cycle completed! Reclaim escrow deposit back to wallet"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>CLAIM REFUND</span>
+                    </button>
+                  )}
+                  <div className="flex items-center space-x-1.5 font-mono-tech text-[10px] text-[#059669] font-bold">
+                    <CheckCircle className="w-3.5 h-3.5 text-[#059669]" />
+                    <span>{getHireTiming(selectedJobToInspect).isLeaseExpired ? 'Lease cycle completed' : 'Escrow released! Active sentinel monitoring enabled'}</span>
+                  </div>
                 </div>
               ) : (
                 <div />

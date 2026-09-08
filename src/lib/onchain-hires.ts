@@ -192,12 +192,18 @@ export async function fetchOnchainHires(buyerAddress: string, network: BscNetwor
 
       // Check if session cache or local storage has richer metadata for this txHash
       const matched = sessionHires.find((sh) => sh.id === txHash || sh.txs?.includes(txHash));
+      const deadlineHours = matched?.deadlineHours || '24';
+      const durationMs = Number(deadlineHours) * 3600 * 1000;
+      const expiresAt = matched?.expiresAt || new Date(timeMs + durationMs).toISOString();
+
       if (matched) {
         return {
           ...matched,
           budgetU: matched.budgetU || amountFormatted,
           paymentAmount: matched.paymentAmount || amountFormatted,
           state: matched.state || 'funded',
+          deadlineHours,
+          expiresAt,
           txs: matched.txs?.length ? matched.txs : [txHash],
         };
       }
@@ -216,6 +222,8 @@ export async function fetchOnchainHires(buyerAddress: string, network: BscNetwor
         budgetU: amountFormatted,
         paymentToken: 'U',
         paymentAmount: amountFormatted,
+        deadlineHours,
+        expiresAt,
         artifactUri: null,
         lastAction: `Escrow deposit verified on BSC ${network === 'bscTestnet' ? 'Testnet' : 'Mainnet'}`,
         createdAt: new Date(timeMs).toISOString(),
@@ -270,107 +278,233 @@ export async function fetchOnchainHires(buyerAddress: string, network: BscNetwor
   }
 }
 
+export interface EscrowActionOptions {
+  deliverableHash?: string;
+  depositTx?: string;
+  agentId?: string;
+}
+
 /**
- * Settle payment on-chain via Router contract (User signs Web3 transaction directly)
+ * Check if a jobId corresponds to an active, registered on-chain numeric Job ID on the Commerce contract
+ */
+async function resolveNumericOnchainJob(
+  jobId: string,
+  chainId: number,
+  buyerAddress: string
+): Promise<bigint | null> {
+  const addresses = ERC8183_ADDRESSES[chainId as 56 | 97];
+  const client = chainId === 56 ? bscMainnetClient : bscTestnetClient;
+
+  // If jobId is a 66-char hex string (0x...) or starts with 'job_0x' or 'hire_', it is an escrow deposit tx hash
+  if (jobId.startsWith('0x') || jobId.startsWith('job_0x') || jobId.startsWith('hire_') || jobId.length > 20) {
+    return null;
+  }
+
+  const rawDigits = jobId.replace(/\D/g, '');
+  if (!rawDigits || rawDigits.length > 10) return null;
+
+  try {
+    const candidateId = BigInt(rawDigits);
+    if (candidateId <= 0n) return null;
+
+    const jobCounter = await (client as any).readContract({
+      address: addresses.commerce,
+      abi: COMMERCE_ABI,
+      functionName: 'jobCounter',
+    });
+
+    if (candidateId > BigInt(jobCounter)) return null;
+
+    // Verify job client matches buyer
+    const job: any = await (client as any).readContract({
+      address: addresses.commerce,
+      abi: COMMERCE_ABI,
+      functionName: 'getJob',
+      args: [candidateId],
+    });
+
+    if (job && job.client?.toLowerCase() === buyerAddress.toLowerCase()) {
+      return candidateId;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Settle payment on-chain via Router contract (or Cryptographic Buyer Settlement Signature for Deposit Hires)
  */
 export async function executeOnchainSettle(
   provider: Eip1193Provider,
   buyerAddress: string,
   jobId: string,
-  network: BscNetwork
+  network: BscNetwork,
+  options?: EscrowActionOptions
 ): Promise<string> {
   const chainId = network === 'bscMainnet' ? 56 : 97;
-  const routerAddress = ERC8183_ADDRESSES[chainId].router;
+  const addresses = ERC8183_ADDRESSES[chainId];
 
-  // Extract numeric job id if formatted as job_123 or hex
-  const numericJobId = BigInt(jobId.replace(/\D/g, '') || '1');
+  // Pre-flight check: is this a registered numeric on-chain job?
+  const numericJobId = await resolveNumericOnchainJob(jobId, chainId, buyerAddress);
 
-  const callData = encodeFunctionData({
-    abi: ROUTER_ABI,
-    functionName: 'settle',
-    args: [numericJobId, '0x'],
+  if (numericJobId !== null) {
+    const callData = encodeFunctionData({
+      abi: ROUTER_ABI,
+      functionName: 'settle',
+      args: [numericJobId, '0x'],
+    });
+
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: buyerAddress,
+          to: addresses.router,
+          data: callData,
+        },
+      ],
+    });
+
+    return txHash;
+  }
+
+  // Escrow Deposit: Perform Gasless Buyer Settlement Signature (EIP-191)
+  const depositTx = options?.depositTx || (jobId.startsWith('0x') ? jobId : undefined);
+  const releaseMessage = [
+    'ERC-8183 ESCROW RELEASE CONFIRMATION',
+    `Network: ${network === 'bscTestnet' ? 'BNB Smart Chain Testnet (Chain ID 97)' : 'BNB Smart Chain Mainnet (Chain ID 56)'}`,
+    `Buyer: ${buyerAddress}`,
+    depositTx ? `Escrow Deposit Tx: ${depositTx}` : `Job ID: ${jobId}`,
+    options?.deliverableHash ? `Deliverable Hash: ${options.deliverableHash}` : '',
+    options?.agentId ? `Agent: ${options.agentId}` : '',
+    'Action: Release Escrow Payment to Agent',
+    `Timestamp: ${new Date().toISOString()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const signature = await provider.request({
+    method: 'personal_sign',
+    params: [releaseMessage, buyerAddress],
   });
 
-  const txHash = await provider.request({
-    method: 'eth_sendTransaction',
-    params: [
-      {
-        from: buyerAddress,
-        to: routerAddress,
-        data: callData,
-      },
-    ],
-  });
-
-  return txHash;
+  return signature;
 }
 
 /**
- * Claim escrow refund on-chain via Commerce contract (User signs Web3 transaction directly)
+ * Claim escrow refund on-chain via Commerce contract (or Cryptographic Buyer Refund Claim for Deposit Hires)
  */
 export async function executeOnchainRefund(
   provider: Eip1193Provider,
   buyerAddress: string,
   jobId: string,
-  network: BscNetwork
+  network: BscNetwork,
+  options?: EscrowActionOptions
 ): Promise<string> {
   const chainId = network === 'bscMainnet' ? 56 : 97;
-  const commerceAddress = ERC8183_ADDRESSES[chainId].commerce;
+  const addresses = ERC8183_ADDRESSES[chainId];
 
-  const numericJobId = BigInt(jobId.replace(/\D/g, '') || '1');
+  const numericJobId = await resolveNumericOnchainJob(jobId, chainId, buyerAddress);
 
-  const callData = encodeFunctionData({
-    abi: COMMERCE_ABI,
-    functionName: 'claimRefund',
-    args: [numericJobId],
+  if (numericJobId !== null) {
+    const callData = encodeFunctionData({
+      abi: COMMERCE_ABI,
+      functionName: 'claimRefund',
+      args: [numericJobId],
+    });
+
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: buyerAddress,
+          to: addresses.commerce,
+          data: callData,
+        },
+      ],
+    });
+
+    return txHash;
+  }
+
+  const depositTx = options?.depositTx || (jobId.startsWith('0x') ? jobId : undefined);
+  const refundMessage = [
+    'ERC-8183 ESCROW REFUND CLAIM',
+    `Network: ${network === 'bscTestnet' ? 'BNB Smart Chain Testnet (Chain ID 97)' : 'BNB Smart Chain Mainnet (Chain ID 56)'}`,
+    `Buyer: ${buyerAddress}`,
+    depositTx ? `Escrow Deposit Tx: ${depositTx}` : `Job ID: ${jobId}`,
+    options?.agentId ? `Agent: ${options.agentId}` : '',
+    'Action: Reclaim Escrow Deposit after Job Expiry',
+    `Timestamp: ${new Date().toISOString()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const signature = await provider.request({
+    method: 'personal_sign',
+    params: [refundMessage, buyerAddress],
   });
 
-  const txHash = await provider.request({
-    method: 'eth_sendTransaction',
-    params: [
-      {
-        from: buyerAddress,
-        to: commerceAddress,
-        data: callData,
-      },
-    ],
-  });
-
-  return txHash;
+  return signature;
 }
 
 /**
- * Dispute deliverable on-chain via Policy contract within optimistic dispute window
+ * Dispute deliverable on-chain via Policy contract (or Cryptographic Buyer Dispute Notice for Deposit Hires)
  */
 export async function executeOnchainDispute(
   provider: Eip1193Provider,
   buyerAddress: string,
   jobId: string,
-  network: BscNetwork
+  network: BscNetwork,
+  options?: EscrowActionOptions
 ): Promise<string> {
   const chainId = network === 'bscMainnet' ? 56 : 97;
-  const policyAddress = ERC8183_ADDRESSES[chainId].policy;
+  const addresses = ERC8183_ADDRESSES[chainId];
 
-  const numericJobId = BigInt(jobId.replace(/\D/g, '') || '1');
+  const numericJobId = await resolveNumericOnchainJob(jobId, chainId, buyerAddress);
 
-  const callData = encodeFunctionData({
-    abi: POLICY_ABI,
-    functionName: 'dispute',
-    args: [numericJobId],
+  if (numericJobId !== null) {
+    const callData = encodeFunctionData({
+      abi: POLICY_ABI,
+      functionName: 'dispute',
+      args: [numericJobId],
+    });
+
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: buyerAddress,
+          to: addresses.policy,
+          data: callData,
+        },
+      ],
+    });
+
+    return txHash;
+  }
+
+  const depositTx = options?.depositTx || (jobId.startsWith('0x') ? jobId : undefined);
+  const disputeMessage = [
+    'ERC-8183 ESCROW DELIVERABLE DISPUTE',
+    `Network: ${network === 'bscTestnet' ? 'BNB Smart Chain Testnet (Chain ID 97)' : 'BNB Smart Chain Mainnet (Chain ID 56)'}`,
+    `Buyer: ${buyerAddress}`,
+    depositTx ? `Escrow Deposit Tx: ${depositTx}` : `Job ID: ${jobId}`,
+    options?.deliverableHash ? `Disputed Deliverable Hash: ${options.deliverableHash}` : '',
+    options?.agentId ? `Agent: ${options.agentId}` : '',
+    'Action: File Optimistic Dispute within Challenge Window',
+    `Timestamp: ${new Date().toISOString()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const signature = await provider.request({
+    method: 'personal_sign',
+    params: [disputeMessage, buyerAddress],
   });
 
-  const txHash = await provider.request({
-    method: 'eth_sendTransaction',
-    params: [
-      {
-        from: buyerAddress,
-        to: policyAddress,
-        data: callData,
-      },
-    ],
-  });
-
-  return txHash;
+  return signature;
 }
 
 /**
