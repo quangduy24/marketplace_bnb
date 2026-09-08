@@ -33,26 +33,6 @@ export const agents = pgTable('agents', {
   };
 });
 
-export const hires = pgTable('hires', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  buyer: text('buyer').notNull(),
-  chainId: integer('chain_id').notNull(),
-  agentId: text('agent_id').notNull(),
-  catalog: text('catalog').notNull(),
-  rail: text('rail').notNull(), // 'x402' | 'erc8183'
-  jobId: text('job_id'),
-  txs: text('txs').array(),
-  state: text('state').notNull(), // 'funded' | 'running' | 'submitted' | 'paid' | 'rejected' | 'expired'
-  budgetU: numeric('budget_u'),
-  paymentToken: text('payment_token').default('U'),
-  paymentAmount: numeric('payment_amount'),
-  artifactUri: text('artifact_uri'),
-  lastAction: text('last_action'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-});
-
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
-export type Hire = typeof hires.$inferSelect;
-export type NewHire = typeof hires.$inferInsert;
+

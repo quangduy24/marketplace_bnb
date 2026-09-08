@@ -27,6 +27,12 @@ import {
   watchWallet,
   getInjectedProvider,
 } from './lib/wallet.ts';
+import {
+  fetchOnchainHires,
+  getSessionHires,
+  addSessionHire,
+  updateSessionHire,
+} from './lib/onchain-hires.ts';
 
 const VIEW_TO_PATH: Record<AppView, string> = {
   story: '/story',
@@ -64,11 +70,31 @@ export default function App() {
   const [currentView, setCurrentView] = useState<AppView>(() => getInitialView());
   const [agents, setAgents] = useState<AgentData[]>([]); // toàn bộ pool (769) — directory & search mặc định
   const [agentsActive, setAgentsActive] = useState<AgentData[]>([]); // active labeled (143) — 4 stalls Image 1
-  const [hires, setHires] = useState<HireData[]>([]);
-  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletAddress, setWalletAddress] = useState<string>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('bnb_agent_last_wallet') || '';
+    }
+    return '';
+  });
+  const [network, setNetwork] = useState<BscNetwork>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('bnb_agent_last_network') as BscNetwork;
+      if (saved === 'bscTestnet' || saved === 'bscMainnet') return saved;
+    }
+    return 'bscMainnet';
+  });
+  const [hires, setHires] = useState<HireData[]>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedWallet = window.localStorage.getItem('bnb_agent_last_wallet') || '';
+      const savedNet = (window.localStorage.getItem('bnb_agent_last_network') as BscNetwork) || 'bscMainnet';
+      if (savedWallet) {
+        return getSessionHires(savedWallet, savedNet);
+      }
+    }
+    return [];
+  });
   const [walletBalanceU, setWalletBalanceU] = useState<number>(0);
   const [walletBalanceBnb, setWalletBalanceBnb] = useState<number>(0);
-  const [network, setNetwork] = useState<BscNetwork>('bscMainnet');
   const [focusedChamber, setFocusedChamber] = useState<CareerCategory | null>(null);
 
   const [walletContext, setWalletContext] = useState<WalletContextState>({
@@ -153,20 +179,35 @@ export default function App() {
     }
   }, [walletAddress, network]);
 
-  // Fetch hires from API
+  // Fetch hires dynamically from on-chain data & persistent local cache (Zero DB Egress)
   const fetchHires = useCallback(async () => {
+    if (!walletAddress) {
+      setHires([]);
+      return;
+    }
     try {
-      const res = await fetch(`/api/hires?buyer=${walletAddress}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.hires && data.hires.length > 0) {
-          setHires(data.hires);
-        }
+      console.log(`[App] Scanning and restoring hired agents for wallet: ${walletAddress} on ${network}`);
+      const onchainList = await fetchOnchainHires(walletAddress, network);
+      setHires(onchainList);
+      if (onchainList.length > 0) {
+        console.log(`[App] Successfully loaded ${onchainList.length} hired agent(s) into squad.`);
       }
     } catch (err) {
-      console.warn('Failed to fetch hires', err);
+      console.warn('Failed to fetch on-chain hires', err);
     }
-  }, [walletAddress]);
+  }, [walletAddress, network]);
+
+  // Persist last active wallet and network across page reloads (F5)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (walletAddress) {
+        window.localStorage.setItem('bnb_agent_last_wallet', walletAddress);
+      } else {
+        window.localStorage.removeItem('bnb_agent_last_wallet');
+      }
+      window.localStorage.setItem('bnb_agent_last_network', network);
+    }
+  }, [walletAddress, network]);
 
   // Fetch context from API (real Venus on-chain health factor for the connected wallet)
   const fetchContext = useCallback(async () => {
@@ -305,7 +346,7 @@ export default function App() {
     };
   }, [refreshAllAgents]);
 
-  // Handle hiring an agent
+  // Handle hiring an agent (100% Stateless On-Chain, Zero DB Writes)
   const handleHireAgent = async (payload: {
     agentId: string;
     catalog: CareerCategory | string;
@@ -317,31 +358,33 @@ export default function App() {
     paymentAmount?: string;
     deadlineHours?: string;
   }) => {
-    const res = await fetch('/api/hires', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        buyer: walletAddress,
-        chainId: network === 'bscMainnet' ? 56 : 97,
-        agentId: payload.agentId,
-        catalog: payload.catalog,
-        rail: payload.rail,
-        budgetU: payload.budgetU,
-        taskSummary: payload.taskSummary,
-        txHash: payload.txHash,
-        paymentToken: payload.paymentToken || 'U',
-        paymentAmount: payload.paymentAmount || payload.budgetU,
-        deadlineHours: payload.deadlineHours,
-      }),
-    });
+    const resolvedChainId = network === 'bscMainnet' ? 56 : 97;
+    const hireId = payload.txHash || `hire_${resolvedChainId}_${Date.now()}`;
+    const newHire: HireData = {
+      id: hireId,
+      buyer: walletAddress,
+      buyerAddress: walletAddress,
+      chainId: resolvedChainId,
+      agentId: payload.agentId,
+      catalog: payload.catalog,
+      rail: payload.rail,
+      jobId: payload.txHash ? `job_${payload.txHash.slice(0, 10)}` : `job_bsc_${Date.now()}`,
+      txs: payload.txHash ? [payload.txHash] : [],
+      state: 'funded',
+      budgetU: payload.budgetU,
+      paymentToken: payload.paymentToken || 'U',
+      paymentAmount: payload.paymentAmount || payload.budgetU,
+      artifactUri: null,
+      lastAction: payload.txHash
+        ? `Escrow deposit funded in ${payload.paymentToken || 'U'} on BSC (${network === 'bscTestnet' ? 'Testnet' : 'Mainnet'})`
+        : 'Escrow active on-chain',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => 'Unknown error');
-      throw new Error(`Hire request failed (${res.status}): ${errText}`);
-    }
-
-    const hire = await res.json();
-    setHires((prev) => [hire, ...prev]);
+    // Save in session cache & optimistic state
+    addSessionHire(walletAddress, network, newHire);
+    setHires((prev) => [newHire, ...prev.filter((h) => h.id !== newHire.id)]);
 
     // Refresh real wallet balances so deducted balance is reflected in HUD
     if (walletAddress) {
@@ -354,21 +397,17 @@ export default function App() {
     navigate('agents');
   };
 
-  // Sync state transition for an agent job in the house
+  // Sync state transition for an agent job in the house (Stateless On-chain)
   const handleSyncJobState = async (hireId: string, newState: string, lastAction?: string) => {
     try {
-      const res = await fetch(`/api/hires/${hireId}/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: newState, lastAction }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Sync failed (${res.status})`);
-      }
-
-      const updated = await res.json();
-      setHires((prev) => prev.map((h) => (h.id === hireId ? { ...h, ...updated } : h)));
+      updateSessionHire(walletAddress, network, hireId, { state: newState as any, lastAction });
+      setHires((prev) =>
+        prev.map((h) =>
+          h.id === hireId
+            ? { ...h, state: newState as any, lastAction: lastAction || h.lastAction, updatedAt: new Date().toISOString() }
+            : h
+        )
+      );
 
       // Job resolved — refresh real wallet context & balances, and notify user
       if (newState === 'paid' || newState === 'rejected' || newState === 'expired') {
@@ -570,6 +609,8 @@ export default function App() {
               onSyncJobState={handleSyncJobState}
               healthFactor={walletContext.healthFactor}
               focusedChamber={focusedChamber}
+              buyerAddress={walletAddress}
+              network={network}
             />
           )}
 

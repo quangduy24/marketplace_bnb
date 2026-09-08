@@ -55,22 +55,12 @@ const _init = createDb();
 export let client: any = _init.client;
 export let db: any = _init.db;
 
-export type AddHireInput = Omit<schema.Hire, 'id' | 'createdAt' | 'updatedAt' | 'paymentToken' | 'paymentAmount'> & {
-  id?: string;
-  paymentToken?: string;
-  paymentAmount?: string;
-};
-
 export interface Store {
   getAgents(filterActive?: boolean, category?: string, verifiedOnly?: boolean, includeUncategorized?: boolean, chainId?: number): Promise<schema.Agent[]>;
   getAllAgents(): Promise<schema.Agent[]>;
   getAgentById(id: string): Promise<schema.Agent | undefined>;
   countAgents(): Promise<number>;
   upsertAgent(agent: Partial<schema.Agent> & { chainId: number; agentId: string }): Promise<void>;
-  getHires(buyer?: string): Promise<schema.Hire[]>;
-  getHireById(id: string): Promise<schema.Hire | undefined>;
-  addHire(hire: AddHireInput): Promise<schema.Hire>;
-  updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null>;
 }
 
 /**
@@ -158,84 +148,6 @@ export class SqlStore implements Store {
         set: merged,
       });
   }
-
-  async getHires(buyer?: string): Promise<schema.Hire[]> {
-    let query = this.db.select().from(schema.hires).orderBy(desc(schema.hires.createdAt));
-    if (buyer) {
-      query = query.where(sql`lower(${schema.hires.buyer}) = ${buyer.toLowerCase()}`);
-    }
-    return await query;
-  }
-
-  async getHireById(id: string): Promise<schema.Hire | undefined> {
-    const rows = await this.db.select().from(schema.hires).where(eq(schema.hires.id, id)).limit(1);
-    return rows[0];
-  }
-
-  async addHire(hire: AddHireInput): Promise<schema.Hire> {
-    const values: any = {
-      ...hire,
-      paymentToken: hire.paymentToken || 'U',
-      paymentAmount: hire.paymentAmount || hire.budgetU,
-    };
-    if (hire.id) values.id = hire.id;
-    try {
-      const rows = await this.db.insert(schema.hires).values(values).returning();
-      return rows[0];
-    } catch (err: any) {
-      if (err?.cause?.code === '42703' || String(err?.message || '').includes('payment_token')) {
-        try {
-          if (client) {
-            await client`ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_token text DEFAULT 'U'`;
-            await client`ALTER TABLE hires ADD COLUMN IF NOT EXISTS payment_amount numeric`;
-            const retryRows = await this.db.insert(schema.hires).values(values).returning();
-            return retryRows[0];
-          }
-        } catch {}
-        delete values.paymentToken;
-        delete values.paymentAmount;
-        const fallbackRows = await this.db.insert(schema.hires).values(values).returning();
-        return {
-          ...fallbackRows[0],
-          paymentToken: hire.paymentToken || 'U',
-          paymentAmount: hire.paymentAmount || hire.budgetU,
-        };
-      }
-      throw err;
-    }
-  }
-
-  async updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null> {
-    const values = { ...updates, updatedAt: new Date() };
-    const rows = await this.db
-      .update(schema.hires)
-      .set(values)
-      .where(eq(schema.hires.id, id))
-      .returning();
-    const updated = rows[0];
-    if (!updated) return null;
-
-    // Bayesian Thompson update upon completion (mirrors MemoryStore semantics)
-    if (updates.state === 'submitted' || updates.state === 'paid') {
-      await this.db
-        .update(schema.agents)
-        .set({
-          banditAlpha: sql`${schema.agents.banditAlpha} + 1.0`,
-          successCount: sql`${schema.agents.successCount} + 1`,
-        })
-        .where(eq(schema.agents.agentId, updated.agentId));
-    } else if (updates.state === 'rejected' || updates.state === 'expired') {
-      await this.db
-        .update(schema.agents)
-        .set({
-          banditBeta: sql`${schema.agents.banditBeta} + 1.0`,
-          failureCount: sql`${schema.agents.failureCount} + 1`,
-        })
-        .where(eq(schema.agents.agentId, updated.agentId));
-    }
-
-    return updated;
-  }
 }
 
 /**
@@ -244,7 +156,6 @@ export class SqlStore implements Store {
  */
 export class MemoryStore implements Store {
   private agents: schema.Agent[] = [];
-  private hires: schema.Hire[] = [];
 
   constructor() {
     this.seedAgents();
@@ -338,54 +249,6 @@ export class MemoryStore implements Store {
         ...agent,
       } as schema.Agent);
     }
-  }
-
-  public async getHires(buyer?: string): Promise<schema.Hire[]> {
-    if (buyer) {
-      return this.hires.filter((h) => h.buyer.toLowerCase() === buyer.toLowerCase());
-    }
-    return this.hires;
-  }
-
-  public async getHireById(id: string): Promise<schema.Hire | undefined> {
-    return this.hires.find((h) => h.id === id);
-  }
-
-  public async addHire(hire: AddHireInput): Promise<schema.Hire> {
-    const id = hire.id || `hire-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    const newHire: schema.Hire = {
-      paymentToken: hire.paymentToken || 'U',
-      paymentAmount: hire.paymentAmount || hire.budgetU,
-      ...hire,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.hires.unshift(newHire);
-    return newHire;
-  }
-
-  public async updateHire(id: string, updates: Partial<schema.Hire>): Promise<schema.Hire | null> {
-    const hire = this.hires.find((h) => h.id === id);
-    if (!hire) return null;
-    Object.assign(hire, updates, { updatedAt: new Date() });
-
-    // Bayesian Thompson update upon completion
-    if (updates.state === 'submitted' || updates.state === 'paid') {
-      const agent = this.agents.find((a) => a.agentId === hire.agentId);
-      if (agent) {
-        agent.banditAlpha += 1.0;
-        agent.successCount += 1;
-      }
-    } else if (updates.state === 'rejected' || updates.state === 'expired') {
-      const agent = this.agents.find((a) => a.agentId === hire.agentId);
-      if (agent) {
-        agent.banditBeta += 1.0;
-        agent.failureCount += 1;
-      }
-    }
-
-    return hire;
   }
 }
 

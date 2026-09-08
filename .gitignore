@@ -33,4 +33,4 @@ worker-configuration.d.ts
 # Tests & Documentation (local only)
 test/
 docs/
-
+report.md

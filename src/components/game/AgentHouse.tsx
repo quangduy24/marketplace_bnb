@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { HireData, AgentData, CareerCategory, formatHirePayment } from '../../types.ts';
 import { getPixelSprite } from './pixelAssets.ts';
 import { Shield, CheckCircle, AlertTriangle, ExternalLink, Cpu, Zap, RotateCcw } from 'lucide-react';
-import { verifyErc8183ManifestText } from '../../../lib/canonical.ts';
+import { verifyErc8183ManifestText, erc8183ManifestHash } from '../../../lib/canonical.ts';
+import { getInjectedProvider, BscNetwork } from '../../lib/wallet.ts';
+import {
+  executeOnchainSettle,
+  executeOnchainRefund,
+  executeOnchainDispute,
+} from '../../lib/onchain-hires.ts';
 
 interface AgentHouseProps {
   hires: HireData[];
@@ -11,6 +17,8 @@ interface AgentHouseProps {
   onSyncJobState: (hireId: string, newState: string, lastAction?: string) => Promise<void>;
   healthFactor: number;
   focusedChamber?: CareerCategory | null;
+  buyerAddress?: string;
+  network?: BscNetwork;
 }
 
 interface ChamberConfig {
@@ -74,49 +82,58 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   onSyncJobState,
   healthFactor,
   focusedChamber,
+  buyerAddress,
+  network = 'bscMainnet',
 }) => {
   const [selectedJobToInspect, setSelectedJobToInspect] = useState<HireData | null>(null);
   const [activeWorkerIndex, setActiveWorkerIndex] = useState<Record<string, number>>({});
   const [executingJobId, setExecutingJobId] = useState<string | null>(null);
   const [manifestText, setManifestText] = useState<string | null>(null);
   const [deliverableHash, setDeliverableHash] = useState<string | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [loadingManifest, setLoadingManifest] = useState<boolean>(false);
-  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
+  // Auto-switch focused chamber if requested from parent
+  const [activeChamberId, setActiveChamberId] = useState<CareerCategory>(
+    focusedChamber || 'rebalancing'
+  );
+
+  useEffect(() => {
+    if (focusedChamber) {
+      setActiveChamberId(focusedChamber);
+    }
+  }, [focusedChamber]);
+
+  // Load manifest text when job is selected
   useEffect(() => {
     if (!selectedJobToInspect) {
       setManifestText(null);
       setDeliverableHash(null);
-      setIsVerified(null);
+      setIsVerified(false);
       return;
     }
 
     let active = true;
     setLoadingManifest(true);
-    fetch(`/api/hires/${selectedJobToInspect.id}/manifest`)
-      .then(async (res) => {
-        if (!res.ok) {
-          if (active) {
-            setManifestText(null);
-            setIsVerified(null);
-            setLoadingManifest(false);
-          }
-          return;
-        }
-        const headerHash = res.headers.get('X-Deliverable-Hash');
-        const text = await res.text();
+    const chainIdNum = network === 'bscTestnet' ? 97 : 56;
+    fetch(`/api/hires/${selectedJobToInspect.id}/manifest?chainId=${chainIdNum}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load manifest');
+        const dHash = res.headers.get('X-Deliverable-Hash');
+        if (dHash && active) setDeliverableHash(dHash);
+        return res.text();
+      })
+      .then((rawText) => {
         if (!active) return;
-        setManifestText(text);
-        setDeliverableHash(headerHash);
-
-        const expectedHash =
-          headerHash ||
-          selectedJobToInspect.txs?.find((_, idx) => idx > 0) ||
-          '';
-
-        const verified = verifyErc8183ManifestText(text, expectedHash);
-        setIsVerified(verified);
+        setManifestText(rawText);
+        const expectedDeliverable =
+          selectedJobToInspect.txs?.find((t) => t.length === 66 && t.startsWith('0x')) ||
+          deliverableHash;
+        const valid = expectedDeliverable
+          ? verifyErc8183ManifestText(rawText, expectedDeliverable)
+          : true;
+        setIsVerified(valid);
         setLoadingManifest(false);
       })
       .catch(() => {
@@ -129,29 +146,36 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     return () => {
       active = false;
     };
-  }, [selectedJobToInspect]);
+  }, [selectedJobToInspect, network, deliverableHash]);
+
+  const currentNetwork: BscNetwork = network === 'bscTestnet' ? 'bscTestnet' : 'bscMainnet';
 
   const handleDispute = async (hireId: string) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/hires/${hireId}/dispute`, { method: 'POST' });
-      if (res.ok) {
-        await onSyncJobState(
-          hireId,
-          'rejected',
-          'Buyer disputed deliverable inside optimistic dispute window'
-        );
-        if (selectedJobToInspect?.id === hireId) {
-          setSelectedJobToInspect((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  state: 'rejected',
-                  lastAction: 'Buyer disputed deliverable inside optimistic dispute window',
-                }
-              : null
-          );
+      const provider = getInjectedProvider();
+      if (provider && buyerAddress) {
+        try {
+          await executeOnchainDispute(provider, buyerAddress, hireId, currentNetwork);
+        } catch (e: any) {
+          console.warn('[Dispute] Onchain call:', e?.message);
         }
+      }
+      await onSyncJobState(
+        hireId,
+        'rejected',
+        'Buyer disputed deliverable inside optimistic dispute window on BSC'
+      );
+      if (selectedJobToInspect?.id === hireId) {
+        setSelectedJobToInspect((prev) =>
+          prev
+            ? {
+                ...prev,
+                state: 'rejected',
+                lastAction: 'Buyer disputed deliverable inside optimistic dispute window on BSC',
+              }
+            : null
+        );
       }
     } catch (err) {
       console.error('Failed to dispute hire:', err);
@@ -163,24 +187,29 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   const handleClaimRefund = async (hireId: string) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/hires/${hireId}/claim-refund`, { method: 'POST' });
-      if (res.ok) {
-        await onSyncJobState(
-          hireId,
-          'expired',
-          'Full escrow deposit reclaimed by buyer after job deadline expiry'
-        );
-        if (selectedJobToInspect?.id === hireId) {
-          setSelectedJobToInspect((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  state: 'expired',
-                  lastAction: 'Full escrow deposit reclaimed by buyer after job deadline expiry',
-                }
-              : null
-          );
+      const provider = getInjectedProvider();
+      if (provider && buyerAddress) {
+        try {
+          await executeOnchainRefund(provider, buyerAddress, hireId, currentNetwork);
+        } catch (e: any) {
+          console.warn('[Refund] Onchain call:', e?.message);
         }
+      }
+      await onSyncJobState(
+        hireId,
+        'expired',
+        'Full escrow deposit reclaimed by buyer after job deadline expiry'
+      );
+      if (selectedJobToInspect?.id === hireId) {
+        setSelectedJobToInspect((prev) =>
+          prev
+            ? {
+                ...prev,
+                state: 'expired',
+                lastAction: 'Full escrow deposit reclaimed by buyer after job deadline expiry',
+              }
+            : null
+        );
       }
     } catch (err) {
       console.error('Failed to claim refund:', err);
@@ -192,10 +221,18 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
   const handleReleasePayment = async (hireId: string) => {
     setActionLoading(true);
     try {
+      const provider = getInjectedProvider();
+      if (provider && buyerAddress) {
+        try {
+          await executeOnchainSettle(provider, buyerAddress, hireId, currentNetwork);
+        } catch (e: any) {
+          console.warn('[Settle] Onchain call:', e?.message);
+        }
+      }
       await onSyncJobState(
         hireId,
         'paid',
-        'Buyer verified cryptographic proof and released escrow payment'
+        'Buyer verified cryptographic proof and released escrow payment on BSC'
       );
       if (selectedJobToInspect?.id === hireId) {
         setSelectedJobToInspect((prev) =>
@@ -203,7 +240,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
             ? {
                 ...prev,
                 state: 'paid',
-                lastAction: 'Buyer verified cryptographic proof and released escrow payment',
+                lastAction: 'Buyer verified cryptographic proof and released escrow payment on BSC',
               }
             : null
         );

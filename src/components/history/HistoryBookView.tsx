@@ -38,7 +38,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
 
     let active = true;
     setLoadingManifest(true);
-    fetch(`/api/hires/${selectedJobToInspect.id}/manifest`)
+    fetch(`/api/hires/${selectedJobToInspect.id}/manifest?chainId=${selectedJobToInspect.chainId || 56}`)
       .then(async (res) => {
         if (!res.ok) {
           if (active) {

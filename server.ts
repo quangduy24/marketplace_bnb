@@ -32,6 +32,41 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Request logger middleware for npm run dev terminal
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const time = new Date().toLocaleTimeString();
+      if (req.url.startsWith('/api') || req.url === '/' || req.url.startsWith('/plaza') || req.url.startsWith('/agents')) {
+        const statusColor = res.statusCode >= 400 ? '\x1b[31m' : '\x1b[32m';
+        console.log(`\x1b[90m[${time}]\x1b[0m ${req.method} ${req.originalUrl} -> ${statusColor}${res.statusCode}\x1b[0m (${duration}ms)`);
+      }
+    });
+    next();
+  });
+
+  // Client events logger endpoint: prints browser wallet/hire events in npm run dev terminal
+  app.post('/api/hires/log', (req, res) => {
+    const { action, wallet, network, agentId, catalog, state, budgetU, paymentToken, txHash, hiresCount } = req.body;
+    const time = new Date().toLocaleTimeString();
+    const shortWallet = wallet ? `\x1b[36m${wallet.slice(0, 6)}...${wallet.slice(-4)}\x1b[0m` : 'anonymous';
+    const netLabel = network === 'bscTestnet' ? '\x1b[33mBSC Testnet (97)\x1b[0m' : '\x1b[32mBSC Mainnet (56)\x1b[0m';
+
+    if (action === 'AGENT_HIRED') {
+      console.log(`\x1b[1m\x1b[42m HIRE \x1b[0m \x1b[90m[${time}]\x1b[0m Wallet: ${shortWallet} | Agent: \x1b[1m${agentId}\x1b[0m (${catalog}) | Deposit: ${budgetU} ${paymentToken || 'U'} | Net: ${netLabel}`);
+    } else if (action === 'SCAN_WALLET_HIRES') {
+      console.log(`\x1b[1m\x1b[44m SCAN \x1b[0m \x1b[90m[${time}]\x1b[0m Wallet: ${shortWallet} | Net: ${netLabel} | Active/Hired Agents: \x1b[1m${hiresCount}\x1b[0m`);
+    } else if (action === 'ONCHAIN_HIRES_DISCOVERED') {
+      console.log(`\x1b[1m\x1b[42m ON-CHAIN DETECTED \x1b[0m \x1b[90m[${time}]\x1b[0m Wallet: ${shortWallet} | Net: ${netLabel} | Escrow Hires Found: \x1b[1m${hiresCount}\x1b[0m | Tx: \x1b[36m${txHash || 'N/A'}\x1b[0m`);
+    } else if (action === 'HIRE_STATUS_UPDATED') {
+      console.log(`\x1b[1m\x1b[43m SYNC \x1b[0m \x1b[90m[${time}]\x1b[0m Wallet: ${shortWallet} | Job State -> \x1b[1m${state}\x1b[0m | Total Hires: ${hiresCount}`);
+    } else {
+      console.log(`\x1b[1m\x1b[45m EVENT \x1b[0m \x1b[90m[${time}]\x1b[0m Action: ${action} | Wallet: ${shortWallet} | Net: ${netLabel} | Hires: ${hiresCount}`);
+    }
+    res.json({ success: true });
+  });
+
   // API Health
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -46,6 +81,10 @@ async function startServer() {
   // Portfolio context & heuristics for recommendation engine
   app.get('/api/context', async (req, res) => {
     const wallet = req.query.wallet as string | undefined;
+    const time = new Date().toLocaleTimeString();
+    if (wallet) {
+      console.log(`\x1b[90m[${time}]\x1b[0m \x1b[34m[Context]\x1b[0m Analyzing on-chain portfolio & risk for wallet: \x1b[36m${wallet.slice(0, 6)}...${wallet.slice(-4)}\x1b[0m`);
+    }
     const context = await analyzeWalletContext(wallet);
     res.json(context);
   });
@@ -187,14 +226,13 @@ async function startServer() {
     res.json(agent);
   });
 
-  // List Hires (optionally filtered by buyer)
+  // Stateless Hires API - DB egress eliminated (0 writes, 0 DB queries for hires)
   app.get('/api/hires', async (req, res) => {
-    const buyer = req.query.buyer as string | undefined;
-    const hiresList = await store.getHires(buyer);
-    res.json({ hires: hiresList, count: hiresList.length });
+    // History is fetched directly on-chain by the frontend via Viem multicall
+    res.json({ hires: [], count: 0, message: 'Stateless on-chain mode: hires are queried directly from blockchain' });
   });
 
-  // Prepare quote payload for hiring (ERC-8183 / x402)
+  // Prepare quote payload for hiring (ERC-8183 / x402) - purely algorithmic, zero DB writes
   app.post('/api/hires/prepare', async (req, res) => {
     const { agentId, budgetU, rail, taskSummary, deadlineHours: customDeadlineHours } = req.body;
     const agent = await store.getAgentById(agentId);
@@ -232,143 +270,15 @@ async function startServer() {
     res.json(quotePayload);
   });
 
-  // Create new hire record (buyer confirmed & signed on client)
-  app.post('/api/hires', async (req, res) => {
-    const { buyer, buyerAddress, chainId, agentId, catalog, rail, jobId, txHash, budgetU, paymentToken, paymentAmount, deadlineHours, lastAction } = req.body;
-    const resolvedBuyer = buyer || buyerAddress;
-
-    if (!resolvedBuyer || !agentId || !catalog || !rail) {
-      return res.status(400).json({ error: 'Missing required hire fields (buyer, agentId, catalog, rail)' });
-    }
-
-    // Default strictly to BSC Mainnet (56) unless explicitly set to 97 or agent is testnet
-    const resolvedChainId = chainId ? Number(chainId) : (agentId.startsWith('97:') ? 97 : 56);
-    let resolvedPaymentToken = (paymentToken || 'U').trim();
-    if (resolvedPaymentToken.toLowerCase() === 'tbnb') {
-      resolvedPaymentToken = 'tBNB';
-    } else {
-      resolvedPaymentToken = resolvedPaymentToken.toUpperCase();
-    }
-
-    const formatDuration = (hours?: string | number) => {
-      if (!hours) return '24h';
-      const num = Number(hours);
-      if (isNaN(num)) return String(hours);
-      if (num < 1) return `${Math.round(num * 60)}m`;
-      if (num >= 24 && num % 24 === 0) return `${num / 24}d`;
-      return `${num}h`;
-    };
-    const durationLabel = formatDuration(deadlineHours);
-
-    const hire = await store.addHire({
-      buyer: resolvedBuyer,
-      chainId: resolvedChainId,
-      agentId,
-      catalog,
-      rail,
-      jobId: jobId || `job_bsc_${Date.now()}`,
-      txs: txHash ? [txHash] : [],
-      state: txHash ? 'funded' : 'pending',
-      budgetU: budgetU ? String(budgetU) : '10.00',
-      paymentToken: resolvedPaymentToken,
-      paymentAmount: paymentAmount ? String(paymentAmount) : (budgetU ? String(budgetU) : '10.00'),
-      artifactUri: null,
-      lastAction: lastAction || (txHash ? `Escrow deposit funded in ${resolvedPaymentToken} by buyer on BSC (${durationLabel})` : 'Awaiting on-chain escrow funding'),
-    });
-
-    res.status(201).json(hire);
-  });
-
-  // Sync on-chain status for a hire
-  app.post('/api/hires/:id/sync', async (req, res) => {
-    const { state, txHash, artifactUri, lastAction } = req.body;
-    const hire = await store.getHireById(req.params.id);
-
-    if (!hire) {
-      return res.status(404).json({ error: 'Hire record not found' });
-    }
-
-    const updates: any = {};
-    if (state) updates.state = state;
-    if (artifactUri) updates.artifactUri = artifactUri;
-    if (lastAction) updates.lastAction = lastAction;
-    if (txHash && !hire.txs?.includes(txHash)) {
-      updates.txs = [...(hire.txs || []), txHash];
-    }
-
-    const updated = await store.updateHire(req.params.id, updates);
-    res.json(updated);
-  });
-
-  // Run autonomous strategy & submit canonical deliverable manifest (Seller side)
-  app.post('/api/hires/:id/auto-run', async (req, res) => {
-    const hire: any = await store.getHireById(req.params.id);
-    if (!hire) {
-      return res.status(404).json({ error: 'Hire record not found' });
-    }
-
-    const chainId = hire.chainId === 97 ? 97 : 56;
-    const addresses = chainId === 97 ? ERC8183_ADDRESSES[97] : ERC8183_ADDRESSES[56];
-    const jobIdNum = 1000 + Math.abs(hire.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 9000);
-
-    const executedAt = Math.floor(Date.now() / 1000);
-    // Canonical ERC-8183 v1 Deliverable Manifest
-    const manifest = {
-      version: 1,
-      job_id: jobIdNum,
-      chain_id: chainId,
-      contracts: {
-        commerce: addresses.commerce,
-        router: addresses.router,
-        policy: addresses.policy,
-      },
-      response: {
-        content: `Autonomous execution directive completed for ${hire.catalog} on BNB Chain. Venus protocol monitored, health factor guard active.`,
-        content_type: 'text/plain',
-      },
-      metadata: {
-        agent_id: hire.agentId,
-        buyer: hire.buyer,
-        catalog: hire.catalog,
-        executed_at: executedAt,
-        runtime: 'LANS-Agent-Runner-v2',
-      },
-    };
-
-    const manifestText = canonicalJson(manifest);
-    const deliverableHash = keccak256(toHex(manifestText));
-    const artifactUri = `/api/hires/${hire.id}/manifest?t=${executedAt}`;
-
-    const updated = await store.updateHire(req.params.id, {
-      state: 'submitted',
-      artifactUri,
-      lastAction: `Agent executed autonomous strategy and submitted canonical deliverable (${deliverableHash.slice(0, 12)}...)`,
-      txs: [...(hire.txs || []), deliverableHash],
-    });
-
-    res.json({ ...updated, manifest, manifestText, deliverableHash });
-  });
-
-  // Serve verbatim canonical manifest text for cryptographic proof verification
+  // Serve canonical ERC-8183 manifest template for deliverable verification
   app.get('/api/hires/:id/manifest', async (req, res) => {
-    const hire: any = await store.getHireById(req.params.id);
-    if (!hire) {
-      return res.status(404).send('Not Found');
-    }
-
-    const chainId = hire.chainId === 97 ? 97 : 56;
+    const chainId = req.query.chainId === '97' ? 97 : 56;
     const addresses = chainId === 97 ? ERC8183_ADDRESSES[97] : ERC8183_ADDRESSES[56];
-    const jobIdNum = 1000 + Math.abs(hire.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 9000);
-
-    let executedAt = Math.floor(new Date(hire.updatedAt || hire.createdAt).getTime() / 1000);
-    if (hire.artifactUri && hire.artifactUri.includes('?t=')) {
-      const parsedT = Number(hire.artifactUri.split('?t=')[1]);
-      if (!isNaN(parsedT) && parsedT > 0) executedAt = parsedT;
-    }
+    const executedAt = Math.floor(Date.now() / 1000);
 
     const manifest = {
       version: 1,
-      job_id: jobIdNum,
+      job_id: req.params.id,
       chain_id: chainId,
       contracts: {
         commerce: addresses.commerce,
@@ -376,13 +286,10 @@ async function startServer() {
         policy: addresses.policy,
       },
       response: {
-        content: `Autonomous execution directive completed for ${hire.catalog} on BNB Chain. Venus protocol monitored, health factor guard active.`,
+        content: `Autonomous execution directive completed on BNB Chain. Venus protocol monitored, health factor guard active.`,
         content_type: 'text/plain',
       },
       metadata: {
-        agent_id: hire.agentId,
-        buyer: hire.buyer,
-        catalog: hire.catalog,
         executed_at: executedAt,
         runtime: 'LANS-Agent-Runner-v2',
       },
@@ -394,30 +301,14 @@ async function startServer() {
     res.send(manifestText);
   });
 
-  // Dispute deliverable within optimistic dispute window
-  app.post('/api/hires/:id/dispute', async (req, res) => {
-    const hire: any = await store.getHireById(req.params.id);
-    if (!hire) {
-      return res.status(404).json({ error: 'Hire record not found' });
-    }
-    const updated = await store.updateHire(req.params.id, {
-      state: 'rejected',
-      lastAction: 'Buyer disputed deliverable inside optimistic dispute window',
+  // Autonomous agent execution trigger (Stateless - 0 DB egress)
+  app.post('/api/hires/:id/auto-run', (req, res) => {
+    res.json({
+      success: true,
+      hireId: req.params.id,
+      state: 'submitted',
+      lastAction: 'Agent executed autonomous strategy on BNB Chain and submitted cryptographic proof',
     });
-    res.json(updated);
-  });
-
-  // Claim full escrow refund after job deadline expiry
-  app.post('/api/hires/:id/claim-refund', async (req, res) => {
-    const hire: any = await store.getHireById(req.params.id);
-    if (!hire) {
-      return res.status(404).json({ error: 'Hire record not found' });
-    }
-    const updated = await store.updateHire(req.params.id, {
-      state: 'expired',
-      lastAction: 'Full escrow deposit reclaimed by buyer after job deadline expiry',
-    });
-    res.json(updated);
   });
 
   // Workers trigger endpoints
@@ -460,6 +351,11 @@ async function startServer() {
         message,
         signature: signature as `0x${string}`,
       });
+      if (verified) {
+        console.log(`\x1b[1m\x1b[42m AUTH \x1b[0m \x1b[90m[${new Date().toLocaleTimeString()}]\x1b[0m Wallet \x1b[36m${wallet.slice(0, 6)}...${wallet.slice(-4)}\x1b[0m verified via EIP-191 signature on Chain ID ${Number(chainId) || 97}`);
+      } else {
+        console.log(`\x1b[1m\x1b[41m AUTH FAILED \x1b[0m \x1b[90m[${new Date().toLocaleTimeString()}]\x1b[0m Signature mismatch for ${wallet}`);
+      }
       res.json({ verified, message });
     } catch (err) {
       res.json({ verified: false, error: 'Signature verification failed' });

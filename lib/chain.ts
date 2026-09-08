@@ -2,10 +2,10 @@
  * Web3 BSC Configuration (Chain IDs 56 and 97)
  * Viem v2 Client setup and contract registries
  */
-import { createPublicClient, http, defineChain } from 'viem';
+import { createPublicClient, http, defineChain, fallback } from 'viem';
 
-const DEFAULT_MAINNET_RPCS = ['https://bsc-dataseed.binance.org', 'https://bsc.publicnode.com'];
-const DEFAULT_TESTNET_RPCS = ['https://data-seed-prebsc-1-s1.binance.org:8545', 'https://bsc-testnet.publicnode.com'];
+const DEFAULT_MAINNET_RPCS = ['https://bsc.publicnode.com', 'https://bsc-dataseed.binance.org'];
+const DEFAULT_TESTNET_RPCS = ['https://bsc-testnet.publicnode.com', 'https://data-seed-prebsc-1-s1.binance.org:8545'];
 
 function envValue(key: string): string | undefined {
   // Safe for both Node (server/workers) and browser bundles — process may be undefined.
@@ -128,10 +128,10 @@ export const POLICY_ABI = [
 
 export const bscMainnetClient = createPublicClient({
   chain: bscMainnet,
-  transport: http(),
+  transport: fallback(rpcList(envValue('BSC_MAINNET_RPC_URLS'), DEFAULT_MAINNET_RPCS).map((url) => http(url))),
 });
 
 export const bscTestnetClient = createPublicClient({
   chain: bscTestnet,
-  transport: http(),
+  transport: fallback(rpcList(envValue('BSC_TESTNET_RPC_URLS'), DEFAULT_TESTNET_RPCS).map((url) => http(url))),
 });
