@@ -115,7 +115,26 @@ export default function App() {
   // Wallet picker
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [pickerWallets, setPickerWallets] = useState<WalletOption[]>([]);
-  const [walletVerified, setWalletVerified] = useState(false);
+  const [walletVerified, _setWalletVerified] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedWallet = window.localStorage.getItem('bnb_agent_last_wallet');
+      if (savedWallet) {
+        return window.localStorage.getItem(`bnb_agent_verified_${savedWallet}`) === 'true';
+      }
+    }
+    return false;
+  });
+
+  const setWalletVerified = useCallback((val: boolean) => {
+    _setWalletVerified(val);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      // Use the most current wallet from localStorage to ensure we don't save to the wrong address
+      const currentWallet = window.localStorage.getItem('bnb_agent_last_wallet');
+      if (currentWallet) {
+        window.localStorage.setItem(`bnb_agent_verified_${currentWallet}`, val.toString());
+      }
+    }
+  }, []);
   const [isVerifying, setIsVerifying] = useState(false);
   const activeProviderRef = useRef<Eip1193Provider | null>(null);
 
@@ -202,8 +221,11 @@ export default function App() {
     if (typeof window !== 'undefined' && window.localStorage) {
       if (walletAddress) {
         window.localStorage.setItem('bnb_agent_last_wallet', walletAddress);
+        const isVerified = window.localStorage.getItem(`bnb_agent_verified_${walletAddress}`) === 'true';
+        _setWalletVerified(isVerified);
       } else {
         window.localStorage.removeItem('bnb_agent_last_wallet');
+        _setWalletVerified(false);
       }
       window.localStorage.setItem('bnb_agent_last_network', network);
     }
@@ -281,6 +303,12 @@ export default function App() {
           const detectedNet: BscNetwork = cid === 97 ? 'bscTestnet' : 'bscMainnet';
           setNetwork(detectedNet);
           refreshBalances(address, detectedNet);
+          
+          // Auto-verify if the wallet hasn't been verified yet (to avoid manual clicks on reload)
+          const isVerified = window.localStorage.getItem(`bnb_agent_verified_${address}`) === 'true';
+          if (!isVerified) {
+             verifyWalletIdentity(provider, address).catch(() => {});
+          }
         } catch {
           refreshBalances(address, network);
         }
@@ -355,6 +383,7 @@ export default function App() {
     budgetU: string;
     taskSummary: string;
     txHash?: string;
+    onchainJobId?: string;
     paymentToken?: string;
     paymentAmount?: string;
     deadlineHours?: string;
@@ -370,7 +399,7 @@ export default function App() {
       agentWallet: payload.agentWallet,
       catalog: payload.catalog,
       rail: payload.rail,
-      jobId: payload.txHash ? `job_${payload.txHash.slice(0, 10)}` : `job_bsc_${Date.now()}`,
+      jobId: payload.onchainJobId ? payload.onchainJobId : (payload.txHash ? `job_${payload.txHash.slice(0, 10)}` : `job_bsc_${Date.now()}`),
       txs: payload.txHash ? [payload.txHash] : [],
       state: 'funded',
       budgetU: payload.budgetU,
@@ -638,6 +667,8 @@ export default function App() {
                 navigate('marketplace');
               }}
               buyerAddress={walletAddress}
+              network={network}
+              walletContext={walletContext}
             />
           )}
 

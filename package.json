@@ -9,11 +9,12 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "tsx test/ux-writing.test.ts && tsx test/8004scan-live.test.ts && tsx test/full-marketplace-suite.test.ts && tsx test/onchain-activity.test.ts",
+    "test": "tsx test/ux-writing.test.ts && tsx test/8004scan-live.test.ts && tsx test/full-marketplace-suite.test.ts && tsx test/onchain-activity.test.ts && tsx test/treasury-and-refund.test.ts",
     "test:mainnet": "tsx test/mainnet-hire-flow.test.ts",
     "test:testnet": "tsx test/testnet-hire-flow.test.ts"
   },
   "dependencies": {
+    "@altananetwork/sdk": "^0.9.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",

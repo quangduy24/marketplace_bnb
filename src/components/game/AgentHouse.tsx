@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HireData, AgentData, CareerCategory, formatHirePayment, OnchainActivity } from '../../types.ts';
 import { getPixelSprite } from './pixelAssets.ts';
-import { Shield, CheckCircle, AlertTriangle, ExternalLink, Cpu, Zap, RotateCcw, Clock, Activity } from 'lucide-react';
+import { Shield, CheckCircle, AlertTriangle, ExternalLink, Cpu, Zap, RotateCcw, Clock, Activity, X } from 'lucide-react';
 import { verifyErc8183ManifestText, erc8183ManifestHash } from '../../../lib/canonical.ts';
 import { getInjectedProvider, BscNetwork } from '../../lib/wallet.ts';
 import {
@@ -324,6 +324,22 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     }
   };
 
+  const handleDismissHire = async (hireId: string) => {
+    setActionLoading(true);
+    try {
+      await onSyncJobState(
+        hireId,
+        'archived',
+        'Lease cycle completed. Chamber vacated and agent archived.'
+      );
+      if (selectedJobToInspect?.id === hireId) {
+        setSelectedJobToInspect(null);
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleReleasePayment = async (hireId: string) => {
     setActionLoading(true);
     try {
@@ -372,7 +388,7 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     return hires.filter((h) => {
       const c = (h.catalog || 'rebalancing') as string;
       const normalized = c === 'monitoring' ? 'rebalancing' : c;
-      return normalized === cat && ['pending', 'funded', 'running', 'submitted', 'paid'].includes(h.state);
+      return normalized === cat && ['pending', 'funded', 'running', 'submitted', 'paid', 'expired', 'refunded'].includes(h.state);
     });
   };
 
@@ -765,17 +781,39 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                       </button>
                     )}
 
-                    {/* If expired without deliverable -> CLAIM REFUND */}
-                    {(hire.state === 'expired' || ((hire.state === 'funded' || hire.state === 'running') && timing?.isExpired)) && (
+                    {/* If SLA breached (funded/running + expired) -> CLAIM REFUND */}
+                    {((hire.state === 'funded' || hire.state === 'running') && timing?.isSlaBreached) && (
                       <button
                         onClick={() => handleClaimRefund(hire.id)}
                         disabled={actionLoading}
                         className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[10px] px-2.5 py-0.5 flex items-center space-x-1 animate-pulse"
-                        title="Deadline expired without deliverable! Claim 100% escrow refund"
+                        title="SLA Breached! Claim 100% escrow refund"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>CLAIM REFUND</span>
                       </button>
+                    )}
+
+                    {/* If already refunded/expired OR paid and lease ended -> RENEW / DISMISS */}
+                    {((hire.state as any) === 'expired' || (hire.state as any) === 'refunded' || (hire.state === 'paid' && timing?.isLeaseExpired)) && (
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => handleDismissHire(hire.id)}
+                          disabled={actionLoading}
+                          className="neo-btn bg-[#FAF7F0] hover:bg-[#FF4365] hover:text-white text-[#6A6A6A] font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1"
+                          title="Dismiss agent and archive"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>{hire.state === 'paid' ? 'DISMISS' : 'VACATE CHAMBER'}</span>
+                        </button>
+                        <button
+                          onClick={onNavigateMarket}
+                          className="neo-btn bg-[#FFE500] hover:bg-[#FACC15] text-[#121212] font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1"
+                          title="Renew lease or hire new agent"
+                        >
+                          <span>⚡ {hire.state === 'paid' ? 'RENEW LEASE' : 'RE-HIRE'}</span>
+                        </button>
+                      </div>
                     )}
 
                     {/* If funded and NOT expired -> Can RUN AGENT */}
@@ -869,13 +907,13 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                         </button>
                         {timing?.isLeaseExpired && (
                           <button
-                            onClick={() => handleClaimRefund(hire.id)}
+                            onClick={() => handleDismissHire(hire.id)}
                             disabled={actionLoading}
-                            className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1"
-                            title="Lease cycle completed! Claim escrow deposit back to wallet"
+                            className="neo-btn bg-[#FAF7F0] hover:bg-[#FF4365] hover:text-white text-[#6A6A6A] font-display font-black text-[9px] px-2 py-0.5 flex items-center space-x-1"
+                            title="Lease cycle completed! Vacate chamber and archive"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>CLAIM REFUND</span>
+                            <X className="w-3 h-3" />
+                            <span>VACATE CHAMBER</span>
                           </button>
                         )}
                         <button
@@ -1195,27 +1233,39 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
                     <span>RELEASE</span>
                   </button>
                 </div>
-              ) : selectedJobToInspect.state === 'expired' || ((selectedJobToInspect.state === 'funded' || selectedJobToInspect.state === 'running') && getHireTiming(selectedJobToInspect).isExpired) ? (
+              ) : ((selectedJobToInspect.state === 'funded' || selectedJobToInspect.state === 'running') && getHireTiming(selectedJobToInspect).isSlaBreached) ? (
                 <button
                   onClick={() => handleClaimRefund(selectedJobToInspect.id)}
                   disabled={actionLoading}
                   className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1 animate-pulse"
-                  title="Deadline expired without deliverable! Claim 100% escrow refund"
+                  title="SLA Breached! Claim 100% escrow refund"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>CLAIM REFUND</span>
                 </button>
+              ) : selectedJobToInspect.state === 'expired' || selectedJobToInspect.state === 'refunded' ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleDismissHire(selectedJobToInspect.id)}
+                    disabled={actionLoading}
+                    className="neo-btn bg-[#FAF7F0] hover:bg-[#FF4365] hover:text-white text-[#6A6A6A] font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
+                    title="Vacate chamber and archive"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>VACATE CHAMBER</span>
+                  </button>
+                </div>
               ) : selectedJobToInspect.state === 'paid' ? (
                 <div className="flex items-center space-x-2">
                   {getHireTiming(selectedJobToInspect).isLeaseExpired && (
                     <button
-                      onClick={() => handleClaimRefund(selectedJobToInspect.id)}
+                      onClick={() => handleDismissHire(selectedJobToInspect.id)}
                       disabled={actionLoading}
-                      className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
-                      title="Lease cycle completed! Reclaim escrow deposit back to wallet"
+                      className="neo-btn bg-[#FAF7F0] hover:bg-[#FF4365] hover:text-white text-[#6A6A6A] font-display font-black text-xs px-3 py-1.5 flex items-center space-x-1"
+                      title="Lease cycle completed! Vacate chamber and archive"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>CLAIM REFUND</span>
+                      <X className="w-3.5 h-3.5" />
+                      <span>VACATE CHAMBER</span>
                     </button>
                   )}
                   <div className="flex items-center space-x-1.5 font-mono-tech text-[10px] text-[#059669] font-bold">

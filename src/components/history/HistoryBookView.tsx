@@ -3,6 +3,9 @@ import { HireData, AgentData, CareerCategory, formatHirePayment } from '../../ty
 import { getPixelSprite } from '../game/pixelAssets.ts';
 import { BookOpen, ExternalLink, Filter, MapPin, Hash, CheckCircle2, Shield, CheckCircle } from 'lucide-react';
 import { verifyErc8183ManifestText } from '../../../lib/canonical.ts';
+import { bscTestnetClient, bscMainnetClient, CONTRACT_ADDRESSES, COMMERCE_ABI } from '../../../lib/chain.ts';
+import { getInjectedProvider } from '../../lib/wallet.ts';
+import { encodeFunctionData } from 'viem';
 
 interface HistoryBookViewProps {
   hires: HireData[];
@@ -27,6 +30,112 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
   const [deliverableHash, setDeliverableHash] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [loadingManifest, setLoadingManifest] = useState<boolean>(false);
+  const [liveJobStates, setLiveJobStates] = useState<Record<string, any>>({});
+  const [isRefunding, setIsRefunding] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let active = true;
+    const fetchLiveJobs = async () => {
+      const bscTestnetHires = hires.filter(h => h.chainId === 97 && h.rail === 'erc8183' && h.jobId);
+      const bscMainnetHires = hires.filter(h => h.chainId === 56 && h.rail === 'erc8183' && h.jobId);
+
+      const fetchForChain = async (chainHires: HireData[], chainId: number) => {
+        if (chainHires.length === 0) return {};
+        const client = chainId === 97 ? bscTestnetClient : bscMainnetClient;
+        const commerceAddr = chainId === 97 ? CONTRACT_ADDRESSES.ERC8183_COMMERCE_TESTNET : CONTRACT_ADDRESSES.ERC8183_COMMERCE_MAINNET;
+        
+        try {
+          const results = await client.multicall({
+            contracts: chainHires.map(h => ({
+              address: commerceAddr as `0x${string}`,
+              abi: COMMERCE_ABI,
+              functionName: 'getJob',
+              args: [BigInt(h.jobId!)]
+            }))
+          } as any);
+          
+          const states: Record<string, any> = {};
+          results.forEach((res, idx) => {
+            if (res.status === 'success' && res.result) {
+              const job: any = res.result;
+              states[chainHires[idx].id] = {
+                status: job.status,
+                expiredAt: Number(job.expiredAt)
+              };
+            }
+          });
+          return states;
+        } catch (e) {
+          console.error('Failed to fetch multicall jobs', e);
+          return {};
+        }
+      };
+
+      const [testnetStates, mainnetStates] = await Promise.all([
+        fetchForChain(bscTestnetHires, 97),
+        fetchForChain(bscMainnetHires, 56)
+      ]);
+
+      if (active) {
+        setLiveJobStates({ ...testnetStates, ...mainnetStates });
+      }
+    };
+    
+    fetchLiveJobs();
+    const interval = setInterval(fetchLiveJobs, 15000); // refresh every 15s
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [hires]);
+
+  const handleClaimRefund = async (hire: HireData) => {
+    if (!hire.jobId) return;
+    try {
+      setIsRefunding(prev => ({ ...prev, [hire.id]: true }));
+      const provider = getInjectedProvider();
+      if (!provider) throw new Error('No web3 provider found');
+      
+      const commerceAddress = hire.chainId === 97 ? CONTRACT_ADDRESSES.ERC8183_COMMERCE_TESTNET : CONTRACT_ADDRESSES.ERC8183_COMMERCE_MAINNET;
+      const client = hire.chainId === 97 ? bscTestnetClient : bscMainnetClient;
+      
+      const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+      if (!accounts || accounts.length === 0) throw new Error('No accounts connected');
+      const from = accounts[0];
+
+      const callData = encodeFunctionData({
+        abi: COMMERCE_ABI,
+        functionName: 'claimRefund',
+        args: [BigInt(hire.jobId)]
+      });
+
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{ from, to: commerceAddress, data: callData }]
+      });
+
+      await client.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
+      
+      // Update local state optimistic
+      setLiveJobStates(prev => ({
+        ...prev,
+        [hire.id]: {
+          ...prev[hire.id],
+          status: 4 // REFUNDED
+        }
+      }));
+      
+      if (onSyncJobState) {
+        await onSyncJobState(hire.id, 'refunded', 'Claimed refund due to expired SLA');
+      }
+      
+    } catch (e: any) {
+      alert(e.message || 'Failed to claim refund');
+    } finally {
+      setIsRefunding(prev => ({ ...prev, [hire.id]: false }));
+    }
+  };
 
   useEffect(() => {
     if (!selectedJobToInspect) {
@@ -188,17 +297,28 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                   const explorerBase =
                     hire.chainId === 56 ? 'https://bscscan.com/tx' : 'https://testnet.bscscan.com/tx';
 
+                  const liveStateObj = liveJobStates[hire.id];
+                  let displayState = hire.state;
+                  if (liveStateObj) {
+                    if (liveStateObj.status === 1) displayState = 'funded';
+                    if (liveStateObj.status === 2) displayState = 'submitted';
+                    if (liveStateObj.status === 3) displayState = 'paid';
+                    if (liveStateObj.status === 4) displayState = 'refunded';
+                  }
+
                   const stateBadge =
-                    hire.state === 'paid'
+                    displayState === 'paid'
                       ? 'bg-[#00F59B] text-[#121212]'
-                      : hire.state === 'submitted'
+                      : displayState === 'submitted'
                       ? 'bg-[#FFE500] text-[#121212]'
-                      : hire.state === 'running' || hire.state === 'funded'
+                      : displayState === 'running' || displayState === 'funded'
                       ? 'bg-[#38BDF8] text-[#121212]'
-                      : hire.state === 'pending'
+                      : displayState === 'pending'
                       ? 'bg-[#F59E0B] text-white'
-                      : hire.state === 'cancelled'
+                      : displayState === 'cancelled'
                       ? 'bg-[#71717A] text-white'
+                      : displayState === 'refunded'
+                      ? 'bg-[#121212] text-white'
                       : 'bg-[#FF4365] text-white';
 
                   return (
@@ -251,7 +371,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
 
                       <td className="py-2.5 px-2">
                         <span className={`neo-badge text-[8px] px-1.5 py-0.2 font-black ${stateBadge}`}>
-                          {hire.state.toUpperCase()}
+                          {displayState.toUpperCase()}
                         </span>
                       </td>
 
@@ -282,7 +402,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
 
                       <td className="py-2.5 px-3 text-right">
                         <div className="inline-flex items-center space-x-1.5 justify-end">
-                          {hire.state === 'pending' && onSyncJobState && (
+                          {displayState === 'pending' && onSyncJobState && (
                             <button
                               onClick={() =>
                                 onSyncJobState(
@@ -305,7 +425,7 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                             <Shield className="w-3 h-3 text-[#2563EB]" />
                             <span>PROOFS</span>
                           </button>
-                          {['pending', 'funded', 'running', 'submitted'].includes(hire.state) && (
+                          {['pending', 'funded', 'running', 'submitted'].includes(displayState) && (
                             <button
                               onClick={() => onFocusAgentInHouse(career)}
                               className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2.5 py-1 inline-flex items-center space-x-1"
@@ -314,6 +434,54 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
                               <MapPin className="w-3 h-3" />
                               <span>HOUSE</span>
                             </button>
+                          )}
+
+                          {/* Claim Refund button if SLA is violated */}
+                          {displayState === 'funded' && liveStateObj && liveStateObj.expiredAt < Date.now() / 1000 && (
+                            <button
+                              onClick={() => handleClaimRefund(hire)}
+                              disabled={isRefunding[hire.id]}
+                              className="neo-btn bg-[#FF4365] hover:bg-[#E11D48] text-white font-display font-black text-[10px] px-2 py-1"
+                              title="Claim Refund (SLA Violation)"
+                            >
+                              {isRefunding[hire.id] ? 'REFUNDING...' : 'CLAIM REFUND'}
+                            </button>
+                          )}
+
+                          {/* RENEW LEASE / DISMISS when paid (normal expiration) */}
+                          {displayState === 'paid' && (
+                            <>
+                              <button
+                                onClick={() => onFocusAgentInHouse(career)}
+                                className="neo-btn bg-[#00F59B] text-[#121212] font-display font-black text-[10px] px-2 py-1"
+                              >
+                                RENEW LEASE
+                              </button>
+                              <button
+                                onClick={() => onSyncJobState && onSyncJobState(hire.id, 'dismissed')}
+                                className="neo-btn bg-[#FAF7F0] text-[#121212] font-display font-black text-[10px] px-2 py-1"
+                              >
+                                DISMISS
+                              </button>
+                            </>
+                          )}
+
+                          {/* RE-HIRE / VACATE CHAMBER when refunded (SLA violated, money returned) */}
+                          {(displayState === 'refunded' || displayState === 'cancelled' || displayState === 'dismissed') && (
+                            <>
+                              <button
+                                onClick={() => onFocusAgentInHouse(career)}
+                                className="neo-btn bg-[#FFE500] text-[#121212] font-display font-black text-[10px] px-2 py-1"
+                              >
+                                RE-HIRE
+                              </button>
+                              <button
+                                onClick={() => onSyncJobState && onSyncJobState(hire.id, 'archived')}
+                                className="neo-btn bg-[#FAF7F0] text-[#121212] font-display font-black text-[10px] px-2 py-1"
+                              >
+                                VACATE CHAMBER
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

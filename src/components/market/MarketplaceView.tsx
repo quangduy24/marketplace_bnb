@@ -219,7 +219,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     if (verifiedOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
       return false;
     }
-    // Category filter: 'all' hiển thị toàn bộ (gồm uncategorized/Other); chọn category cụ thể thì lọc theo labels
+    // Category filter: 'all' shows everything (including uncategorized/Other); specific category filters by labels
     if (selectedCategory === 'uncategorized') {
       const labels = agent.labels || [];
       if (!labels.includes('uncategorized') && labels.length > 0) return false;
@@ -652,7 +652,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               filteredAgents.map((agent) => {
                 const rawLabels = (agent.labels || []);
                 const normalizedLabels = rawLabels.map((l) => (l === 'monitoring' ? 'rebalancing' : l));
-                // Đa tag: ưu tiên hiển thị theo category đang filter, fallback tag đầu hợp lệ
+                // Multi-tag: prioritize displaying the currently filtered category, fallback to the first valid tag
                 const firstCareer = normalizedLabels.find((l) => ['health_factor', 'rebalancing', 'grid', 'yield'].includes(l)) as CareerCategory | undefined;
                 const displayCareer = (selectedCategory !== 'all' && normalizedLabels.includes(selectedCategory) ? selectedCategory : (firstCareer || 'rebalancing')) as CareerCategory;
                 const career = displayCareer;
@@ -805,7 +805,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         </button>
                         <button
                           onClick={() => {
-                            // Đa tag: nếu đang filter 1 category thì hire theo category đang filter, ngược lại theo tag đầu
+                            // Multi-tag: if filtering by a single category, hire under that category, otherwise use the first tag
                             const normalized = (agent.labels || []).map((l) => (l === 'monitoring' ? 'rebalancing' : l)) as CareerCategory[];
                             const cat = selectedCategory !== 'all' && normalized.includes(selectedCategory) ? selectedCategory : (normalized[0] as CareerCategory) || 'rebalancing';
                             setHireCategory(cat);
@@ -878,7 +878,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
         />
       )}
 
-      {/* Hire Modal — HIRE giữ nguyên khi chưa thuê, ACTIVATE khi đã active được xử lý ở BottomBar/AgentHouse */}
+      {/* Hire Modal — HIRE remains for new hires, ACTIVATE for active ones handled in BottomBar/AgentHouse */}
       {agentToHire && (
         <HireModal
           agent={agentToHire}

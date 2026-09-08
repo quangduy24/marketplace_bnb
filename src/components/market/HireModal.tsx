@@ -19,7 +19,9 @@ import {
   MultiTokenBalances,
 } from '../../lib/wallet.ts';
 import { CONTRACT_ADDRESSES } from '../../../lib/chain.ts';
-import { parseEther, parseUnits, encodeFunctionData } from 'viem';
+import { parseEther, parseUnits, encodeFunctionData, decodeEventLog, createWalletClient, custom } from 'viem';
+import { bscTestnetClient, bscMainnetClient, COMMERCE_ABI, ROUTER_ABI, bscTestnet, bscMainnet } from '../../../lib/chain.ts';
+import { createClient, BNB, BNB_TESTNET, hireErc8183Agent } from '@altananetwork/sdk';
 
 const erc20TransferAbi = [
   {
@@ -111,6 +113,7 @@ export const HireModal: React.FC<HireModalProps> = ({
   const [bnbPrice, setBnbPrice] = useState(600);
   const [balances, setBalances] = useState<MultiTokenBalances>({ BNB: 0, U: 0, USDT: 0, USDC: 0 });
   const [isSigning, setIsSigning] = useState(false);
+  const [signingStep, setSigningStep] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isClaimingFaucet, setIsClaimingFaucet] = useState(false);
   const [faucetSuccessMsg, setFaucetSuccessMsg] = useState<string | null>(null);
@@ -185,6 +188,7 @@ export const HireModal: React.FC<HireModalProps> = ({
 
     try {
       let txHash: string | undefined;
+      let jobId: any = null;
       const provider = getInjectedProvider();
       if (!provider) {
         throw new Error('No Web3 wallet provider detected. Please install or unlock your wallet.');
@@ -204,24 +208,61 @@ export const HireModal: React.FC<HireModalProps> = ({
         selectedToken === 'U' ? 'erc8183' : agent.x402Supported ? 'x402' : 'erc8183';
 
       if (selectedToken === 'U') {
-        // Real on-chain ERC-8183 $U Escrow Direct Transfer & Funding (Option 1)
+        // Real on-chain ERC-8183 $U Escrow with Altana SDK Passkey Flow
         try {
           const amountWei = parseUnits(numericBudget.toFixed(2), tokenConfig.decimals);
+          const altanaClient = network === 'bscTestnet' 
+            ? createClient({ chains: [BNB_TESTNET] }) 
+            : createClient({ chains: [BNB] });
+            
+          const agentWallet = agent.rawJson?.agentWallet || (agent as any).agentWallet || agent.owner || agent.creatorAddress || agent.agentId;
+          if (!agentWallet) throw new Error('Agent wallet address not found');
+
+          // 1. Create passkey wallet
+          setSigningStep('Step 1/3: Create Passkey Agent');
+          const wallet = await altanaClient.createPasskeyWallet({ name: "Marketplace BNB Agent" });
+
+          // 2. Fund the wallet with $U for budget (Paymaster covers gas via feeToken)
+          setSigningStep('Step 2/3: Fund Agent ($U)');
+          const browserWallet = createWalletClient({ 
+            chain: network === 'bscTestnet' ? bscTestnet : bscMainnet, 
+            transport: custom((window as any).ethereum) 
+          });
+          const [funder] = await browserWallet.requestAddresses();
+          const publicClient = network === 'bscTestnet' ? bscTestnetClient : bscMainnetClient;
+
+          // Transfer $U Budget
           const transferCallData = encodeFunctionData({
             abi: erc20TransferAbi,
             functionName: 'transfer',
-            args: [commerceAddress, amountWei],
+            args: [wallet.address as `0x${string}`, amountWei],
           });
-          txHash = await provider.request({
-            method: 'eth_sendTransaction',
-            params: [
-              {
-                from: buyerAddress,
-                to: tokenConfig.address,
-                data: transferCallData,
-              },
-            ],
-          });
+          const txU = await browserWallet.sendTransaction({
+            account: funder,
+            to: tokenConfig.address,
+            data: transferCallData,
+          } as any);
+          await publicClient.waitForTransactionReceipt({ hash: txU as `0x${string}` });
+
+          // 3. Hire Agent
+          setSigningStep('Step 3/3: Hire Escrow Agent');
+          const hireResult = await hireErc8183Agent(
+            wallet, 
+            wallet.signer, 
+            {
+              provider: agentWallet,
+              task: taskSummary,
+              budget: amountWei,
+            }, 
+            { 
+              network: network === 'bscTestnet' ? BNB_TESTNET : BNB,
+              feeToken: tokenConfig.address as `0x${string}`
+            }
+          );
+          
+          jobId = hireResult.jobId;
+          txHash = (hireResult as any).receipt?.transactionHash || txU;
+
         } catch (signErr: any) {
           if (signErr?.code === 4001 || String(signErr?.message || '').toLowerCase().includes('reject')) {
             throw new Error('Transaction was rejected in your wallet.');
@@ -283,7 +324,7 @@ export const HireModal: React.FC<HireModalProps> = ({
       const recordedPaymentToken =
         selectedToken === 'BNB' && network === 'bscTestnet' ? 'tBNB' : selectedToken;
       const recordedPaymentAmount = getTokenAmount(selectedToken);
-      const agentWallet = agent.rawJson?.agentWallet || (agent as any).agentWallet || agent.creatorAddress || null;
+      const agentWallet = agent.rawJson?.agentWallet || (agent as any).agentWallet || agent.owner || agent.creatorAddress || agent.agentId || null;
 
       await onConfirmHire({
         agentId: agent.agentId,
@@ -293,6 +334,7 @@ export const HireModal: React.FC<HireModalProps> = ({
         budgetU: numericBudget.toFixed(2),
         taskSummary,
         txHash,
+        onchainJobId: jobId?.toString(),
         paymentToken: recordedPaymentToken,
         paymentAmount: recordedPaymentAmount,
         deadlineHours,
@@ -303,6 +345,7 @@ export const HireModal: React.FC<HireModalProps> = ({
       setErrorMsg(err?.message || 'Transaction failed, please try again');
     } finally {
       setIsSigning(false);
+      setSigningStep(null);
     }
   };
 
@@ -590,7 +633,7 @@ export const HireModal: React.FC<HireModalProps> = ({
             <Zap className="w-3.5 h-3.5 fill-[#121212]" />
             <span>
               {isSigning
-                ? 'CONFIRMING...'
+                ? (signingStep || 'CONFIRMING...')
                 : selectedToken === 'U'
                 ? `⚡ SIGN & HIRE (${getTokenAmount('U')} $U)`
                 : `PAY & HIRE (${getTokenAmount(selectedToken)} ${activeTokens[selectedToken]?.symbol || selectedToken})`}
