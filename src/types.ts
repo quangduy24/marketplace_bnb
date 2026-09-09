@@ -103,7 +103,7 @@ export interface WalletContextState {
   idleStableUSD?: number;
 }
 
-export type AppView = 'story' | 'town' | 'marketplace' | 'agents' | 'history' | 'profits' | 'demo';
+export type AppView = 'story' | 'town' | 'marketplace' | 'agents' | 'history' | 'profits' | 'demo' | 'report';
 
 /**
  * Format deposit amount and currency symbol accurately:

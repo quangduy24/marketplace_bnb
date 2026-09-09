@@ -8,6 +8,7 @@ import {
   PlaySquare,
   Film,
   Terminal,
+  Trophy,
 } from 'lucide-react';
 import { AppView } from '../../types.ts';
 
@@ -69,6 +70,13 @@ export const LeftNav: React.FC<LeftNavProps> = ({ currentView, onNavigate }) => 
       icon: PlaySquare,
       badge: 'LIVE',
       accentColor: '#FF4365',
+    },
+    {
+      view: 'report',
+      label: 'REPORT TERMIX',
+      sublabel: 'Live hire proofs',
+      icon: Trophy,
+      accentColor: '#FFE500',
     },
     {
       view: 'story',

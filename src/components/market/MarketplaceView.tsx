@@ -93,6 +93,32 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 }) => {
   // Pool for 4 stalls: prefer agentsActive, fallback to agents
   const stallPool = agentsActive && agentsActive.length > 0 ? agentsActive : agents;
+
+  // PancakeSwap-related agents: matched by name/description/specialization/tags.
+  // Deliberately NOT matching bare "cake" to avoid false positives.
+  const isPancakeAgent = (a: AgentData): boolean => {
+    const haystack = `${a.name || ''} ${a.description || ''} ${(a.rawJson as any)?.specialization || ''}`.toLowerCase();
+    const tagText = [
+      ...((a.rawJson as any)?.tags || []),
+      ...((a.rawJson as any)?.categories || []),
+      ...(a.labels || []),
+      ...((a.rawJson as any)?.labelEvidence?.keywords || []),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes('pancake') || haystack.includes('cakeswap') || tagText.includes('pancake') || tagText.includes('cakeswap');
+  };
+  const pancakeAgents = React.useMemo(() => agents.filter(isPancakeAgent), [agents]);
+  const pancakeTop = pancakeAgents[0];
+  const pancakeRates = pancakeAgents
+    .map((a) => Number((a.rawJson as any)?.hourlyCostU))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const pancakeMinRate = pancakeRates.length > 0 ? Math.min(...pancakeRates) : null;
+
+  const openPancakeList = () => {
+    setSelectedCategory('all');
+    setSearchQuery('pancake');
+  };
   // Filters & State
   const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all' | 'uncategorized'>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -276,6 +302,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             <BookOpen className="w-3.5 h-3.5" />
             <span>{showGlossary ? 'HIDE GUIDE' : 'QUICK GUIDE'}</span>
           </button>
+
+
         </div>
       </div>
 
@@ -499,6 +527,56 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </div>
               );
             })}
+          </div>
+
+          {/* PancakeSwap Agents strip */}
+          <div
+            className="neo-card p-3 sm:p-3.5 mt-1 shrink-0"
+            style={{ borderTop: '5px solid #F0B90B', backgroundColor: '#FFFBEB' }}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="neo-badge text-[8.5px] px-1.5 py-0.2 font-mono-tech font-black bg-[#F0B90B] text-[#121212]">
+                PANCAKESWAP
+              </span>
+              <span className="font-mono-tech text-[9px] text-[#6A6A6A] font-bold">
+                {pancakeAgents.length} AGENTS
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="font-display font-black text-sm text-[#121212] leading-tight">
+                  🥞 PancakeSwap Agents
+                </h3>
+                <p className="font-mono-tech text-[10px] font-bold mt-0.5 text-[#B45309]">
+                  LP ranges · grid orders · yield routing on PancakeSwap
+                </p>
+              </div>
+            </div>
+            <p className="font-sans text-xs text-[#4A4A4A] mt-2 leading-relaxed">
+              {pancakeTop ? `Top: ${pancakeTop.name}` : 'No PancakeSwap agent indexed yet — run SYNC SCAN.'}
+              {pancakeMinRate !== null ? ` · From ${pancakeMinRate.toFixed(2)} $U/hr` : ''}
+            </p>
+            <div className="mt-3 pt-2 border-t-2 border-[#121212] flex items-center justify-end gap-2">
+              <button
+                onClick={openPancakeList}
+                className="neo-btn text-[9px] font-mono-tech font-black px-2 py-1 bg-[#FAF7F0] text-[#121212]"
+              >
+                VIEW AGENTS
+              </button>
+              {pancakeTop && (
+                <button
+                  onClick={() => {
+                    const raw = (pancakeTop.labels?.[0] || 'rebalancing') as string;
+                    setHireCategory((raw === 'monitoring' ? 'rebalancing' : raw) as CareerCategory);
+                    setAgentToHire(pancakeTop);
+                  }}
+                  className="neo-btn bg-[#F0B90B] text-[#121212] font-display font-black text-[9px] px-2.5 py-1 flex items-center space-x-1 hover:bg-[#FFE500]"
+                >
+                  <Zap className="w-3 h-3 fill-[#121212]" />
+                  <span>HIRE</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

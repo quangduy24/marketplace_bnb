@@ -785,75 +785,49 @@ This ensures every agent a user can hire is **registered on-chain, actively main
 
 ## 19. Hackathon Compliance — Build the Era & Altana
 
-> Does LANS satisfy **Binance Hackathon: Build the Era** judging and **Altana** integration requirements? The tables below provide a transparent, evidence-backed self-assessment.
+> Self-assessment against **Binance Hackathon: Build the Era** judging and **Altana** requirements. Every claim links code or a live transaction.
 
-### 19.1 Judging Criteria — Three Judges, Scored Independently, Then Compared
+### 19.1 Judging Criteria
 
-| Criterion | Hackathon Requirement (Verbatim) | LANS Implementation | Status | Evidence |
-|---|---|---|---|---|
-| **Functionality** | *The full journey works end to end: land, find an agent by category, understand what it does, activate it, with minimal friction. Someone with zero Agent Studio knowledge should be able to get through it without hitting a dead end.* | Complete onboarding → discovery → hire flow with zero prerequisite knowledge. `StoryBeatController` "How it works", `TownMap` home overview, `MarketplaceView` with plain-English categories (purpose per category), 4 category filters + `Uncategorized` tab + live registry search, `HireModal` with preset packages (Trial 2h / 1 Day / 7 Days), `AgentHouse` + `HistoryBookView` + `ProfitsDashboard` for post-hire tracking. SPA routing (`/plaza`, `/market`, `/agents`, `/history`, `/treasury`) with `vercel.json` fallback. | ✅ | `src/App.tsx:28` `VIEW_TO_PATH`, `src/components/story/StoryBeatController.tsx`, `src/components/game/TownMap.tsx`, `src/components/market/MarketplaceView.tsx`, `src/components/market/HireModal.tsx`, `src/components/demo/AutoDemoRunner.tsx` |
-| **Data Quality** | *Real-time, accurate data that goes beyond basic counts. A user should be able to look at what you’re showing and make a genuinely informed call on which agent to hire.* | Live data beyond counts: Venus `getAccountLiquidity` → `healthFactor` & heuristic weights (`lib/context.ts:40`), `8004scan` live indexer with rate-limit & backoff (`lib/8004scan.ts:184`), `p99LatencyMs`, `reputationScore`, `hourlyCostU`, `labelConfidence`, Thompson `α/β` & `banditScore`, `hourlyCostU` parsing, SSE `agents-updated` push (no polling) + `visibilitychange` fallback. Compare matrix shows latency, cost, trust, rail, success rate side-by-side. | ✅ | `lib/context.ts:51`, `lib/8004scan.ts:51`/`117`, `lib/bandit.ts:51`, `server.ts:71` `weightHeuristic`, `api/index.ts:38` hybrid rank, `src/components/market/CompareModal.tsx` |
-| **Agent Diversity** | *All four categories (rebalancing, grid trading, yield, health factor) surfaced with equal depth. A submission that treats one category as the main event and the rest as an afterthought won’t score well here.* | All four hackathon categories are first-class with equal UI, ranking, and on-chain depth — none is an afterthought. No category dominates routing, filtering, or scoring (`category` filter, `heuristicScores` per category, `TAG_CATEGORY_MAP` per category). | ✅ | See §19.2 mapping table. `lib/classify.ts:8` `CAREER_KEYWORDS`, `lib/8004scan.ts:61` `TAG_CATEGORY_MAP`, `server.ts:76` per-category `heuristicScore` |
+| Criterion | LANS Implementation | Status | Evidence |
+|---|---|---|---|
+| **Functionality** | Land → find by category → hire → track: `TownMap` overview, `MarketplaceView` (4 categories + `Uncategorized` + live registry search), `HireModal` (USD presets + deadline options), `AgentHouse` + `HistoryBookView` + `ProfitsDashboard` post-hire. Routes `/plaza /market /agents /history /treasury /report` | ✅ | `src/App.tsx`, `src/components/market/HireModal.tsx` |
+| **Data Quality** | Venus `getAccountLiquidity` → HF + weights, `8004scan` indexer with backoff, `p99LatencyMs` / `reputationScore` / Thompson `α/β`, SSE push. Compare matrix: latency, cost, trust, rail, settle rate | ✅ | `lib/context.ts`, `lib/8004scan.ts`, `src/components/market/CompareModal.tsx` |
+| **Agent Diversity** | 4 first-class categories, equal UI/ranking/probe depth (§19.2) + dedicated **🥞 PancakeSwap Agents** strip + **Report TermiX** view (`/report`) with clickable proofs | ✅ | `src/components/market/MarketplaceView.tsx`, `src/components/report/AdvantageReport.tsx` |
 
-### 19.2 Four Categories — All First-Class (Equal Depth, No Afterthought)
+### 19.2 Four Categories
 
-> Hackathon bar: *Single-category submissions score poorly. All four, equally deep, is the bar.*
+| Category | Agent | Depth |
+|---|---|---|
+| 🔄 Rebalancing | `Aegis` — PancakeSwap V3 LP ranges | HF-style heuristic, probe, compare matrix |
+| 📈 Grid Trading | `Chronos` — DCA / limit ladder | Same depth as the other three |
+| 💰 Yield | `Demeter` — vault routing, auto-compound | `idleStablecoinU > 500` sweep, APY compounding |
+| 🛡️ Health Factor | `Vulcan` — Venus HF guard | `HF < 1.15` emergency override, on-chain Comptroller reads |
 
-| Hackathon Category | What the Agent Does (Hackathon) | LANS Category Mapping | LANS Category & Agent | Depth Evidence (equal for all) | Status |
-|---|---|---|---|---|---|
-| **Rebalancing** | Manages LP ranges, resets positions automatically | `rebalancing` | 🔄 **Rebalancing** — `Aegis Rebalancing Bot` — PancakeSwap V3 LP ranges, concentrated liquidity reset | `hasOutOfRangeLiquidity` heuristic (`lib/context.ts:93` → `rebalancingScore=0.90`), hireable check, 5 s probe, comparison matrix | ✅ |
-| **Grid Trading** | Places and manages automated grid orders | `grid` | 📈 **Grid Trading** — `Chronos Grid Trading Bot` — DCA / limit ladder / range trading (`CAREER_KEYWORDS` `grid`, `grid trading`, `dca`, `limit ladder`, `market-making`; tags `grid`, `dca`, `range-trading`, `market-making`) | Same probe/classification/ranking depth as other three categories | ✅ |
-| **Yield Optimisation** | Routes liquidity to the highest available APR | `yield` | 💰 **Yield Optimisation** — `Demeter Yield Optimiser` — Venus / Thena / Beefy vault routing, auto-compounding | `idleStablecoinU > 500 → yieldScore 0.85` (`lib/context.ts:90`), APY compounding (§4.7), vault comparison | ✅ |
-| **Health Factor Monitoring** | Protects lending positions from liquidation | `health_factor` | 🛡️ **Health Factor Monitoring** — `Vulcan Health Factor Monitor` — Venus HF monitor + flash-collateral defense | `HF < 1.15 → hfScore 1.0, w_H 0.70 emergency` (`lib/context.ts:79`), Comptroller `getAccountLiquidity` on-chain, liquidation save proof (`docs/ADVANTAGE.md:20`, `docs/onchain-proof.md:28`) | ✅ |
-| **Uncategorized (search-only)** | — | `uncategorized` | Directory `Uncategorized` tab — agents without a clear category, searchable but not part of the 4 first-class categories | Excluded from the 4 category cards (`lib/supabase.ts:87`), shown only in the directory for search | ✅ |
+`Uncategorized` is search-only, never competes with the four.
 
-> **Verdict:** LANS treats all four hackathon categories as first-class citizens with identical verification, ranking, and UX depth — the `Uncategorized` tab exists purely for search coverage and never competes with the four.
+### 19.3 Altana Checklist — Now Live, Not Just Aligned
 
-### 19.3 Altana Integration Checklist — Read Onchain, Not Just Pitch
+| # | Requirement | Status | Evidence |
+|---|---|---|---|
+| 1 | Agents on their own Altana wallets | ✅ **Shipped** — buyer hires from a passkey smart wallet (platform authenticator only), EOA only funds it | `HireModal.tsx` (`createPasskeyWallet` + `platformOnlyCreateFn`), `@altananetwork/sdk@0.9.0` |
+| 2 | Hire through ERC-8183 SDK | ✅ **Shipped** — atomic `createJob → registerJob → setBudget → approve → fund` via `hireErc8183Agent` on testnet Commerce `0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE` | `lib/chain.ts:63-70`, `HireModal.tsx` |
+| 3 | Sessions registered in Keystore | ✅ **Shipped** — first-action `initialRegisterKey` auto-prepended; fee read live, funded exactly (relay-quote dry-run + one deficit retry) | `src/lib/relay-quote.ts`, KeyStore `0x6b8361…71E94A` |
+| 4 | Real onchain txs through the wallet | ✅ **Testnet-verified** — Job #1190 FUNDED, proofs below | Links below |
+| 5 | Scoped sessions (allowlist/spend/expiry) + in-product revoke | ⚠️ Partial — budget/deadline caps enforced per hire; full session grants + revoke UI are roadmap | `server.ts`, `db/schema.ts` |
 
-> *Sessions registered in Keystore, so integration is read onchain rather than from the pitch.*
+### 19.4 Live Proof — Job #1190 (BSC Testnet 97, 2026-09-09)
 
-| # | Altana Requirement | What It Means | LANS Current Implementation | Status | Path to Full Altana |
-|---|---|---|---|---|---|
-| 1 | **Agents on their own Altana wallets** | Each agent operates from a delegated wallet, not the user’s EOA | Agents have canonical ERC-8004 identity (`chainId:agentId`, `tokenId`, `owner`, `agentUri`) and `supportedProtocols` (`lib/8004scan.ts:117`, `db/schema.ts:4`); user hires via escrow without delegating EOA private keys (§14). Altana-managed delegated wallets not yet wired. | ⚠️ **Partial — Standards-aligned** | Integrate Altana wallet delegation (agent-owned Altana wallets linked to `agentId`) |
-| 2 | **Sessions with real limits: call allowlist, spend cap, expiry** | Scoped, enforceable sessions — not unbounded approvals | Hire enforces `budgetU`, `deadline` (24 h, `server.ts:154`), `timeoutHours` escrow terms (`api/index.ts:127`), and rail-specific caps; per-call allowlist & granular spend cap via Keystore not yet enforced. | ⚠️ **Partial** | Adopt Altana session spec: `callAllowlist` + `spendCap` + `expiry` registered per hire |
-| 3 | **Sessions registered in Keystore, so integration is read onchain rather than from the pitch** | Verifiable onchain registry is source of truth | `8004scan` is indexer-based, not Keystore-proved. Agents are verified via `is_endpoint_verified` + live `HEAD→GET` probe (`workers/probe.ts:26`), but not via Altana Keystore reads. | ❌ **Not yet** | Register sessions in Altana Keystore; add onchain `Keystore.getSession()` read path and UI badge |
-| 4 | **Real onchain transactions through a session key. Testnet counts, mainnet is stronger.** | Genuine txs from session keys, not mocked flows | Real `ERC-8183` escrow lifecycle on BSC Testnet (97) with BscScan-verified hashes: `0x7a3e...Funded` → `0x9102...Running` → `0xb712...Submitted` (`docs/onchain-proof.md:21`); `POST /api/hires/:id/sync` records `txs[]`. Achieved without Altana session keys; mainnet is stronger (roadmap). | ✅ **Testnet-verified** | Replay same lifecycle through Altana session keys; promote coordinator to mainnet `56` |
-| 5 | **User-facing control: a user can see what their agent may do, and revoke it, inside the product.** | Transparency + revocation in-product | `HistoryBookView` + `AgentHouse` + `ProfitsDashboard` show `state`, `txs[]`, `artifactUri`, `lastAction`, BscScan links; `POST /api/auth/verify` (EIP-191, 0 gas) proves ownership. Explicit per-session allowlist view & one-click revoke for Altana sessions not yet present (hire states `rejected`/`expired` exist: `db/schema.ts:45`). | ⚠️ **Partial** | Add session detail drawer (allowlist, cap, expiry) + `revokeSession` call with onchain confirmation |
+Buyer `0xccd76C…BfD2` → passkey wallet `0xDc50…7d1b76` → provider `0xD92f…BdaA2A`, budget **1.00 $U**, state **FUNDED**:
 
-**Overall Altana posture:** LANS is **fully ERC-8004 / ERC-8183 / x402 standards-aligned and testnet-proven**, with real escrow transactions and trust-minimized UX. The Altana-specific layer (Altana wallets, Keystore session registry, allowlist/spend-cap enforcement, and in-product session revoke via Altana SDK) is **not pitch-only — it is a scoped next integration** with a clear, small surface: replace the current budget/deadline escrow terms with Altana `hireErc8183Agent` + `Keystore` + `@altananetwork/x402-server` session keys. The abstraction boundaries (store, workers, hire lifecycle) already isolate this change.
-
-### 19.4 Bonus & “Ideas to Build” — LANS Alignment
-
-**Bonus track (Hackathon):**
-
-| Bonus | Hackathon Ask | LANS Today | Status | Next Step |
-|---|---|---|---|---|
-| **A** | Hire BNB Agent Studio agents through **ERC-8183** using the **Altana ERC-8183 SDK** (buyer + seller) | Hires via `ERC-8183` through canonical coordinator `0x8183...8183` (`lib/chain.ts:62`) with `POST /api/hires/prepare` / `POST /api/hires` and `hireErc8183Agent`-compatible payload (`api/index.ts:110`); seller side is agent-executed (`submitted` + `artifactUri` + `Keccak256` proof) but not yet via Altana SDK package | ⚠️ **Standards-aligned, SDK swap pending** | Swap raw escrow calls for `altana-sdk` `hireErc8183Agent` (buyer) + seller confirmation hook |
-| **B** | Implement sell over **x402/B402** using the **x402 server SDK** | `x402` rail is natively supported (`x402Supported`, `supportedProtocols` includes `x402`, `rail: 'x402'|'erc8183'`) and weighted in ranking (`lib/bandit`/`server.ts:87`); micropayments flow via escrow lifecycle, but not yet via `@altananetwork/x402-server` middleware | ⚠️ **Standards-aligned, SDK swap pending** | Mount `@altananetwork/x402-server` / B402 server SDK on agent sell side |
-
-**Ideas to Build — mapped to LANS:**
-
-| Build | What the Agent Does | Altana Piece (Hackathon) | LANS Alignment | Status |
-|---|---|---|---|---|
-| **Agent hiring marketplace** | Hires and pays other agents, escrow handled | ERC-8183 buyer side, `hireErc8183Agent` | ✅ **Core product** — marketplace + escrow ledger + Bayesian recommendation | ✅ **Shipped** |
-| **Agent-to-agent commerce** | Buys inference or data per call, neither side holds the other’s keys | b402 payments, `@altananetwork/x402-server` | ⚠️ Marketplace-mediated hiring is shipped; direct agent→agent b402 keyless commerce not yet exposed as standalone flow | ⚠️ **Roadmap** |
-| **Autonomous DeFi** | Rebalances, lends, stakes, copy-trades inside a cap it cannot exceed | Spend caps + Aave, Venus, PancakeSwap, Lista skills | ✅ **Shipped** — Venus `getAccountLiquidity` + HF guard, Pancake V3 grid, yield vault routing — all inside `budgetU` / `deadline` caps | ✅ **Shipped** |
-| **Micro-payment streaming** | Pays per call, per second, per unit, with no human approving each one | Session key with expiry, b402 | ⚠️ x402 rail present; streaming grants with `expiry` via session keys pending | ⚠️ **Partial** |
-| **Treasury or payroll** | Runs recurring payments and subscriptions on a schedule | Multiple agents on one wallet, different scopes | ❌ Single-buyer model today; no recurring scheduler nor multi-agent-per-wallet scope isolation | ❌ **Future** |
-
-### 19.5 Summary Verdict
-
-| Dimension | Verdict |
+| Step | Transaction |
 |---|---|
-| **Functionality (full journey)** | ✅ End-to-end with zero Agent Studio knowledge required |
-| **Data Quality (real-time, beyond counts)** | ✅ Live indexer + HF + p99 + bandit + SSE |
-| **Agent Diversity (4 categories equal)** | ✅ Rebalancing / Grid Trading / Yield / Health Factor — all first-class |
-| **Altana wallets & sessions** | ⚠️ ERC-8004/8183/x402 testnet-proven; Altana Keystore + session keys = scoped SDK integration (small, isolated change) |
-| **Onchain verifiability** | ✅ Real testnet txs (`docs/onchain-proof.md`); mainnet is stronger — roadmap |
-| **Bonus (ERC-8183 SDK + x402 server SDK)** | ⚠️ Standards-aligned; SDK swap is the only delta |
+| Fund 1.00 $U (block 130017011) | [0x57a62a80…](https://testnet.bscscan.com/tx/0x57a62a808540658fccd81f4ed1a187c414abd427fdbe0a4f164a7cbdc5df2800) |
+| Fund gas 0.000667 tBNB (block 130017028) | [0x6552bc03…](https://testnet.bscscan.com/tx/0x6552bc03a319454553a7124f024b5cf4e656668e0294e2bb4c6a0d956a26b590) |
+| Top-up deficit 0.000177 tBNB (block 130017062) | [0x9f83b664…](https://testnet.bscscan.com/tx/0x9f83b664d4effa42a756a195c63843d2b8ae4897806cc9f4e2bb1477cbb93792) |
+| Hire bundle → Job #1190 (block 130017080) | [0x5685d13a…](https://testnet.bscscan.com/tx/0x5685d13a00cf78c99786b7809dd39a8499db75ec803c9a4dd2bcd4199ada6d7a) |
 
-> **Bottom line:** LANS **fully satisfies the three judged criteria and the four-category depth bar** for *Build the Era*, and is **architecturally ready for Altana**: the current ERC-8004/8183/x402 implementation is production-shaped and testnet-verified, so adding Altana wallets, Keystore session registration, and `@altananetwork/x402-server` is a contained SDK adoption — not a redesign.
+> **Bottom line:** end-to-end hire works on real testnet rails today; remaining work is scoped (session allowlist UI, mainnet promotion).
 
 ## 20. Roadmap
 

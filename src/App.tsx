@@ -11,6 +11,7 @@ import { AgentHouse } from './components/game/AgentHouse.tsx';
 import { HistoryBookView } from './components/history/HistoryBookView.tsx';
 import { ProfitsDashboard } from './components/profits/ProfitsDashboard.tsx';
 import { AutoDemoRunner } from './components/demo/AutoDemoRunner.tsx';
+import { AdvantageReport } from './components/report/AdvantageReport.tsx';
 import {
   BscNetwork,
   BSC_CHAIN_IDS,
@@ -42,6 +43,7 @@ const VIEW_TO_PATH: Record<AppView, string> = {
   history: '/history',
   profits: '/treasury',
   demo: '/demo',
+  report: '/report',
 };
 
 const PATH_TO_VIEW: Record<string, AppView> = {
@@ -58,6 +60,7 @@ const PATH_TO_VIEW: Record<string, AppView> = {
   '/profits': 'profits',
   '/demo': 'demo',
   '/story': 'story',
+  '/report': 'report',
 };
 
 function getInitialView(): AppView {
@@ -675,6 +678,8 @@ export default function App() {
           {currentView === 'demo' && (
             <AutoDemoRunner onNavigate={(view) => navigate(view)} />
           )}
+
+          {currentView === 'report' && <AdvantageReport />}
         </main>
       </div>
 

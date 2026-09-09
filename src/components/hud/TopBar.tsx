@@ -30,6 +30,7 @@ const LOCATION_NAMES: Record<AppView, { title: string; tag: string }> = {
   history: { title: 'History', tag: 'HISTORY' },
   profits: { title: 'Performance', tag: 'RESULTS' },
   demo: { title: 'Demo', tag: 'DEMO' },
+  report: { title: 'Report TermiX', tag: 'PROOF' },
 };
 
 export const TopBar: React.FC<TopBarProps> = ({
