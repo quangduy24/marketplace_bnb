@@ -710,23 +710,31 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
             {filteredAgents.length === 0 ? (
               <div className="text-center py-10 neo-card bg-[#FAF7F0] p-5 my-auto">
-                <div className="text-2xl mb-1">🔍</div>
+                <div className="text-2xl mb-1">{agentsLoading || liveSearching ? '⏳' : '🔍'}</div>
                 <div className="font-display font-black text-xs text-[#121212] uppercase">
-                  NO AGENTS MATCHING "{searchQuery}"
+                  {agentsLoading
+                    ? 'LOADING AGENTS...'
+                    : liveSearching
+                      ? `SEARCHING "${searchQuery}"...`
+                      : `NO AGENTS MATCHING "${searchQuery}"`}
                 </div>
                 <p className="font-mono-tech text-[10px] text-[#6A6A6A] mt-1">
-                  Try clearing the search query or resetting filters.
+                  {agentsLoading || liveSearching
+                    ? 'Fetching live registry data, please wait.'
+                    : 'Try clearing the search query or resetting filters.'}
                 </p>
-                <button
-                  onClick={() => {
-                    setSelectedCategory('all');
-                    setSearchQuery('');
-                    setVerifiedOnly(false);
-                  }}
-                  className="mt-3 neo-btn bg-[#FFE500] text-[#121212] font-mono-tech text-[10px] font-bold px-3 py-1"
-                >
-                  RESET FILTERS
-                </button>
+                {!(agentsLoading || liveSearching) && (
+                  <button
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setSearchQuery('');
+                      setVerifiedOnly(false);
+                    }}
+                    className="mt-3 neo-btn bg-[#FFE500] text-[#121212] font-mono-tech text-[10px] font-bold px-3 py-1"
+                  >
+                    RESET FILTERS
+                  </button>
+                )}
               </div>
             ) : (
               filteredAgents.map((agent) => {
