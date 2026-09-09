@@ -73,6 +73,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<AppView>(() => getInitialView());
   const [agents, setAgents] = useState<AgentData[]>([]); // toàn bộ pool (769) — directory & search mặc định
   const [agentsActive, setAgentsActive] = useState<AgentData[]>([]); // active labeled (143) — 4 stalls Image 1
+  const [agentsLoading, setAgentsLoading] = useState(true); // true until the first directory fetch settles
   const [walletAddress, setWalletAddress] = useState<string>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       return window.localStorage.getItem('bnb_agent_last_wallet') || '';
@@ -182,6 +183,8 @@ export default function App() {
       }
     } catch (err) {
       console.warn('Failed to fetch agents, will retry or fallback', err);
+    } finally {
+      setAgentsLoading(false);
     }
   }, [walletAddress, network]);
 
@@ -629,6 +632,7 @@ export default function App() {
             <MarketplaceView
               agents={agents}
               agentsActive={agentsActive}
+              agentsLoading={agentsLoading}
               walletContext={walletContext}
               buyerAddress={walletAddress}
               onHireAgent={handleHireAgent}

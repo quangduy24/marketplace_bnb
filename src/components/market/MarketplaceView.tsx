@@ -21,6 +21,7 @@ import {
 interface MarketplaceViewProps {
   agents: AgentData[]; // Complete agent pool for directory & search
   agentsActive?: AgentData[]; // Active labeled agents for the 4 stalls
+  agentsLoading?: boolean; // True until the first directory fetch settles
   walletContext: WalletContextState;
   buyerAddress?: string;
   onHireAgent: (payload: any) => Promise<void>;
@@ -85,6 +86,7 @@ const STALLS_CONFIG: StallMetadata[] = [
 export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   agents,
   agentsActive,
+  agentsLoading,
   walletContext,
   buyerAddress,
   onHireAgent,
@@ -813,10 +815,18 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         {/* Pricing */}
                         <div className="text-right shrink-0 bg-[#FAF7F0] p-1.5 border border-[#121212]">
                           <div className="font-mono-tech text-xs text-[#121212] font-black">
-                            {hourlyCost ? `${hourlyCost} $U/hr` : 'RATE: —'}
+                            {hourlyCost
+                              ? `${hourlyCost} $U/hr`
+                              : agentsLoading || liveSearching
+                                ? 'RATE: loading...'
+                                : 'RATE: —'}
                           </div>
                           <div className="font-mono-tech text-[9px] text-[#6A6A6A]">
-                            {dailyCost ? `~$${dailyCost} / day` : 'quote on hire'}
+                            {dailyCost
+                              ? `~$${dailyCost} / day`
+                              : agentsLoading || liveSearching
+                                ? 'fetching quote...'
+                                : 'quote on hire'}
                           </div>
                           <div className="font-mono-tech text-[9px] text-[#059669] font-bold">
                             ★ {starCount} · {totalScore.toFixed(1)} SCORE
