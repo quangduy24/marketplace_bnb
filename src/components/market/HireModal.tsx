@@ -480,6 +480,7 @@ export const HireModal: React.FC<HireModalProps> = ({
 
           // Step 2/5: create a fresh passkey wallet for this hire (no reuse).
           // Platform-only: this computer's Windows Hello / Touch ID, no phone scan.
+          // The credential is saved to the local vault so stranded funds stay recoverable.
           setSigningStep('Step 2/5: Create Passkey Agent');
           let wallet: any;
           try {
@@ -498,6 +499,18 @@ export const HireModal: React.FC<HireModalProps> = ({
               });
             }
             throw pkErr;
+          }
+          try {
+            const { savePasskeyRecord } = await import('../../lib/passkey-vault.ts');
+            savePasskeyRecord({
+              address: wallet.address,
+              credential: (wallet.signer as any)?.credential,
+              network,
+              agentId: agent.agentId,
+              createdAt: new Date().toISOString(),
+            });
+          } catch (vaultErr) {
+            console.warn('[HireModal] Passkey vault save failed (non-blocking):', vaultErr);
           }
 
           // Step 3/5: dry-run the exact hire batch against the relay to learn

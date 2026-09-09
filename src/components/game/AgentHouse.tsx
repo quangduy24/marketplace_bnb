@@ -10,6 +10,31 @@ import {
   executeOnchainDispute,
 } from '../../lib/onchain-hires.ts';
 import { fetchAgentOnchainActivities } from '../../lib/onchain-activity.ts';
+import { ERC8183_ADDRESSES, bscMainnetClient, bscTestnetClient } from '../../../lib/chain.ts';
+
+// Optimistic dispute window (seconds) read live from the Policy contract.
+// The on-chain job expiry is buildTime + disputeWindow + deadline, while locally
+// stored expiresAt only covers the deadline — adding the window aligns the
+// countdown with the chain. Cached per network; 0 until loaded (prior behavior).
+const disputeWindowCache: Record<string, number> = {};
+
+async function fetchDisputeWindowSec(network: BscNetwork): Promise<number> {
+  if (disputeWindowCache[network] !== undefined) return disputeWindowCache[network];
+  try {
+    const chainId = network === 'bscTestnet' ? 97 : 56;
+    const client = network === 'bscTestnet' ? bscTestnetClient : bscMainnetClient;
+    const window = await (client as any).readContract({
+      address: ERC8183_ADDRESSES[chainId as 56 | 97].policy,
+      abi: [{ name: 'disputeWindow', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint64' }] }],
+      functionName: 'disputeWindow',
+    });
+    disputeWindowCache[network] = Number(window);
+  } catch (err) {
+    console.warn('[AgentHouse] disputeWindow read failed, countdown uses deadline only:', err);
+    disputeWindowCache[network] = 0;
+  }
+  return disputeWindowCache[network];
+}
 
 interface AgentHouseProps {
   hires: HireData[];
@@ -126,11 +151,26 @@ export const AgentHouse: React.FC<AgentHouseProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Live dispute window: on-chain hydrated hires already include it in expiresAt,
+  // locally derived ones need it added to match the chain expiry.
+  const [disputeWindowSec, setDisputeWindowSec] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    fetchDisputeWindowSec(currentNetwork).then((secs) => {
+      if (!cancelled) setDisputeWindowSec(secs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentNetwork]);
+
   const getHireTiming = (hire: HireData) => {
     const createdMs = hire.createdAt ? new Date(hire.createdAt).getTime() : now;
     const deadlineHoursNum = Number(hire.deadlineHours || '24');
     const durationMs = Math.max(1000, Math.round(deadlineHoursNum * 3600 * 1000));
-    const expiresAtMs = hire.expiresAt ? new Date(hire.expiresAt).getTime() : createdMs + durationMs;
+    const expiresAtMs = hire.expiresAt
+      ? new Date(hire.expiresAt).getTime()
+      : createdMs + durationMs + disputeWindowSec * 1000;
 
     const remainingMs = Math.max(0, expiresAtMs - now);
     const isLeaseExpired = now >= expiresAtMs;

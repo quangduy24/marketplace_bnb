@@ -125,6 +125,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CareerCategory | 'all' | 'uncategorized'>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hireableOnly, setHireableOnly] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<AgentData[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [agentToHire, setAgentToHire] = useState<AgentData | null>(null);
@@ -245,6 +246,9 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   // Filter agents for the right panel — đa tag: agent có thể thuộc nhiều category
   const filteredAgents = directoryPool.filter((agent) => {
     if (verifiedOnly && (!agent.active || !agent.reachable || !agent.hireable)) {
+      return false;
+    }
+    if (hireableOnly && !agent.hireable) {
       return false;
     }
     // Category filter: 'all' shows everything (including uncategorized/Other); specific category filters by labels
@@ -623,6 +627,17 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                   />
                   <span className="text-[#059669]">● VERIFIED ONLY</span>
                 </label>
+
+                {/* Hireable only checkbox */}
+                <label className="flex items-center space-x-1.5 cursor-pointer font-mono-tech text-[10px] font-bold text-[#121212] bg-[#FAF7F0] px-2 py-1 border border-[#121212] neo-shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={hireableOnly}
+                    onChange={(e) => setHireableOnly(e.target.checked)}
+                    className="accent-[#121212] w-3.5 h-3.5 border-2 border-[#121212]"
+                  />
+                  <span className="text-[#059669]">⚡ HIREABLE ONLY</span>
+                </label>
               </div>
             </div>
 
@@ -725,11 +740,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                 </p>
                 {!(agentsLoading || liveSearching) && (
                   <button
-                    onClick={() => {
-                      setSelectedCategory('all');
-                      setSearchQuery('');
-                      setVerifiedOnly(false);
-                    }}
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setSearchQuery('');
+                    setVerifiedOnly(false);
+                    setHireableOnly(false);
+                  }}
                     className="mt-3 neo-btn bg-[#FFE500] text-[#121212] font-mono-tech text-[10px] font-bold px-3 py-1"
                   >
                     RESET FILTERS

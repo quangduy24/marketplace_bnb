@@ -5,7 +5,9 @@ import { BookOpen, ExternalLink, Filter, MapPin, Hash, CheckCircle2, Shield, Che
 import { verifyErc8183ManifestText } from '../../../lib/canonical.ts';
 import { bscTestnetClient, bscMainnetClient, CONTRACT_ADDRESSES, COMMERCE_ABI } from '../../../lib/chain.ts';
 import { getInjectedProvider } from '../../lib/wallet.ts';
-import { encodeFunctionData } from 'viem';
+import { listPasskeyRecords, removePasskeyRecord, PasskeyRecord } from '../../lib/passkey-vault.ts';
+import { createClient, BNB, BNB_TESTNET, signerFromPasskey } from '@altananetwork/sdk';
+import { encodeFunctionData, formatUnits } from 'viem';
 
 interface HistoryBookViewProps {
   hires: HireData[];
@@ -32,6 +34,118 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
   const [loadingManifest, setLoadingManifest] = useState<boolean>(false);
   const [liveJobStates, setLiveJobStates] = useState<Record<string, any>>({});
   const [isRefunding, setIsRefunding] = useState<Record<string, boolean>>({});
+  const [showVault, setShowVault] = useState(false);
+  const [vaultRecords, setVaultRecords] = useState<PasskeyRecord[]>([]);
+  const [vaultBalances, setVaultBalances] = useState<Record<string, { u: string; native: string }>>({});
+  const [isWithdrawing, setIsWithdrawing] = useState<Record<string, boolean>>({});
+  const [recoverMsg, setRecoverMsg] = useState<string | null>(null);
+
+  const refreshVault = async () => {
+    const records = listPasskeyRecords();
+    setVaultRecords(records);
+    const entries = await Promise.all(
+      records.map(async (r) => {
+        try {
+          const client = r.network === 'bscTestnet' ? bscTestnetClient : bscMainnetClient;
+          const uAddr =
+            r.network === 'bscTestnet'
+              ? CONTRACT_ADDRESSES.U_TOKEN_TESTNET
+              : CONTRACT_ADDRESSES.U_TOKEN_MAINNET;
+          const [uWei, nativeWei] = await Promise.all([
+            (client as any)
+              .readContract({
+                address: uAddr as `0x${string}`,
+                abi: [
+                  { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] },
+                ],
+                functionName: 'balanceOf',
+                args: [r.address as `0x${string}`],
+              })
+              .catch(() => 0n),
+            (client as any).getBalance({ address: r.address as `0x${string}` }).catch(() => 0n),
+          ]);
+          return [r.address, { u: formatUnits(BigInt(uWei), 18), native: formatUnits(BigInt(nativeWei), 18) }] as const;
+        } catch {
+          return [r.address, { u: '0', native: '0' }] as const;
+        }
+      })
+    );
+    setVaultBalances(Object.fromEntries(entries));
+  };
+
+  useEffect(() => {
+    if (showVault) refreshVault().catch(() => {});
+  }, [showVault]);
+
+  // Withdraw the full $U balance of a stranded passkey wallet back to the
+  // connected EOA. Spending still needs this computer's biometric per wallet.
+  // Relay gas is recovered from the wallet's own tBNB dust, which stays behind.
+  const handleWithdrawStranded = async (record: PasskeyRecord) => {
+    setRecoverMsg(null);
+    setIsWithdrawing((prev) => ({ ...prev, [record.address]: true }));
+    try {
+      const provider = getInjectedProvider();
+      if (!provider) throw new Error('No web3 provider found');
+      const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[];
+      if (!accounts || accounts.length === 0) throw new Error('No accounts connected');
+      const destination = accounts[0] as `0x${string}`;
+      if (!record.credential) throw new Error('No passkey credential stored for this wallet');
+
+      const networkConfig = record.network === 'bscTestnet' ? BNB_TESTNET : BNB;
+      const client = record.network === 'bscTestnet' ? bscTestnetClient : bscMainnetClient;
+      const uAddr =
+        record.network === 'bscTestnet'
+          ? CONTRACT_ADDRESSES.U_TOKEN_TESTNET
+          : CONTRACT_ADDRESSES.U_TOKEN_MAINNET;
+      const uWei = BigInt(
+        await (client as any)
+          .readContract({
+            address: uAddr as `0x${string}`,
+            abi: [
+              { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] },
+            ],
+            functionName: 'balanceOf',
+            args: [record.address as `0x${string}`],
+          })
+          .catch(() => 0n)
+      );
+      if (uWei <= 0n) {
+        removePasskeyRecord(record.address);
+        await refreshVault();
+        setRecoverMsg(`Wallet ${record.address.slice(0, 10)}… holds no $U — removed from the list.`);
+        return;
+      }
+      const signer = signerFromPasskey(record.credential as any);
+      const altana = createClient({ chains: [networkConfig] });
+      const result: any = await (altana as any).execute({
+        wallet: { address: record.address },
+        signer,
+        calls: [
+          {
+            to: uAddr,
+            data: encodeFunctionData({
+              abi: [
+                { name: 'transfer', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'recipient', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }] },
+              ],
+              functionName: 'transfer',
+              args: [destination, uWei],
+            }),
+          },
+        ],
+        chainId: networkConfig.chainId,
+      });
+      if (result?.status && result.status !== 'CONFIRMED') {
+        throw new Error(`Relay returned status ${result.status}. Use the HireModal copy pattern to report.`);
+      }
+      removePasskeyRecord(record.address);
+      await refreshVault();
+      setRecoverMsg(`Recovered ${formatUnits(uWei, 18)} $U to ${destination.slice(0, 10)}… (tx ${String(result?.transactionHash || '').slice(0, 18)}…). tBNB dust stays for relay gas.`);
+    } catch (e: any) {
+      setRecoverMsg(e?.message || 'Withdrawal failed. Approve the biometric prompt and retry.');
+    } finally {
+      setIsWithdrawing((prev) => ({ ...prev, [record.address]: false }));
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -266,6 +380,57 @@ export const HistoryBookView: React.FC<HistoryBookViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Stranded passkey wallets recovery */}
+        <div className="shrink-0 mb-2">
+          <button
+            onClick={() => setShowVault(!showVault)}
+            className="neo-btn bg-[#FAF7F0] hover:bg-[#FFE500] text-[#121212] px-2 py-1 text-[10px] font-mono-tech font-black border-2 border-[#121212]"
+          >
+            {showVault ? 'HIDE RECOVERY' : `RECOVER STRANDED FUNDS${vaultRecords.length > 0 ? ` (${vaultRecords.length})` : ''}`}
+          </button>
+        </div>
+        {showVault && (
+          <div className="shrink-0 mb-3 max-h-56 overflow-y-auto bg-[#FAF7F0] border-2 border-[#121212] neo-shadow-sm p-2.5">
+            <p className="font-mono-tech text-[10px] text-[#6A6A6A] mb-2">
+              Passkey wallets created by your hires on this computer. Withdraw leftover $U back to your
+              connected wallet (one biometric approval per wallet). Wallets created before this update
+              have no stored credential and cannot be recovered here.
+            </p>
+            {recoverMsg && (
+              <p className="font-mono-tech text-[10px] font-bold text-[#121212] bg-white border border-[#121212] p-1.5 mb-2 break-all select-text">
+                {recoverMsg}
+              </p>
+            )}
+            {vaultRecords.length === 0 ? (
+              <p className="font-mono-tech text-[10px] text-[#8A8A8A]">No tracked passkey wallets on this computer.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {vaultRecords.map((r) => {
+                  const bal = vaultBalances[r.address] || { u: '…', native: '…' };
+                  const busy = Boolean(isWithdrawing[r.address]);
+                  return (
+                    <div key={r.address} className="bg-white border border-[#121212] p-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-mono-tech text-[10px]">
+                        <div className="font-black text-[#121212]">{r.address.slice(0, 12)}…{r.address.slice(-6)}</div>
+                        <div className="text-[#6A6A6A]">
+                          {r.network === 'bscTestnet' ? 'BSC TESTNET' : 'BNB MAINNET'} · $U {bal.u} · tBNB/BNB {bal.native}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleWithdrawStranded(r)}
+                        disabled={busy}
+                        className="neo-btn bg-[#00F59B] text-[#121212] font-mono-tech text-[10px] font-black px-2.5 py-1 disabled:opacity-50"
+                      >
+                        {busy ? 'WITHDRAWING...' : 'WITHDRAW $U'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Ledger Table */}
         <div className="flex-1 overflow-y-auto pr-1">
